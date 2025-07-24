@@ -1,11 +1,12 @@
 {
-  "name": "Home Assistant Log to Syslog",
+  "name": "Log to Syslog Forwarder",
   "version": "1.0.0",
   "slug": "ha_log_syslog",
-  "description": "Reenvía home-assistant.log a un servidor syslog remoto usando syslog-ng.",
+  "description": "Add-on to forward home-assistant.log to a remote syslog server using syslog-ng.",
   "startup": "services",
   "boot": "auto",
-  "init": false,
+  "arch": ["amd64", "aarch64", "armv7", "i386"],
+  "host_network": false,
   "options": {
     "remote_host": "192.168.50.62",
     "remote_port": 514,
@@ -16,11 +17,8 @@
     "remote_port": "int",
     "facility": "str"
   },
-  "arch": ["amd64", "aarch64", "armv7", "i386"],
   "map": [
     "config:ro"
   ],
-  "ports": [],
-  "host_network": false
+  "ports": []
 }
-
