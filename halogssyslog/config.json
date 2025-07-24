@@ -1,7 +1,7 @@
 {
   "name": "Log to Syslog Forwarder",
   "version": "1.0.0",
-  "slug": "ha_log_syslog",
+  "slug": "halogssyslog",
   "description": "Add-on to forward home-assistant.log to a remote syslog server using syslog-ng.",
   "startup": "services",
   "boot": "auto",
