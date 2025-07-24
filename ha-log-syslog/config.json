@@ -1,0 +1,24 @@
+{
+  "name": "Home Assistant Log to Syslog",
+  "version": "1.0.0",
+  "slug": "ha_log_syslog",
+  "description": "Reenvía home-assistant.log a un servidor syslog remoto usando syslog-ng.",
+  "startup": "services",
+  "boot": "auto",
+  "init": false,
+  "options": {
+    "remote_host": "192.168.50.62",
+    "remote_port": 514,
+    "facility": "local5"
+  },
+  "schema": {
+    "remote_host": "str",
+    "remote_port": "int",
+    "facility": "str"
+  },
+  "map": [
+    "config:ro"
+  ],
+  "ports": [],
+  "host_network": false
+}
