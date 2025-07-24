@@ -1,0 +1,14 @@
+{
+  "name": "Test Addon",
+  "version": "1.0.0",
+  "slug": "test_addon",
+  "description": "Dummy addon for testing.",
+  "startup": "services",
+  "boot": "auto",
+  "init": false,
+  "options": {},
+  "schema": {},
+  "map": [],
+  "ports": [],
+  "host_network": false
+}
