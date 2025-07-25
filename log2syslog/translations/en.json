@@ -1,0 +1,4 @@
+{
+  "name": "Log2Syslog Add-on",
+  "description": "Addon that forwards home-assistant.log to a remote syslog server using syslog-ng."
+}
