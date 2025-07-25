@@ -13,6 +13,14 @@
     "i386"
   ],
   "host_network": false,
-  "options": {},
-  "schema": {}
+  "options": {
+    "remote_host": "192.168.50.62",
+    "remote_port": 514,
+    "facility": "local5"
+  },
+  "schema": {
+    "remote_host": "str",
+    "remote_port": "int",
+    "facility": "str"
+  }
 }
