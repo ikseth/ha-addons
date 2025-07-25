@@ -1,4 +1,0 @@
-{
-  "name": "Reenviador de logs a syslog",
-  "description": "Add-on para reenviar home-assistant.log a un servidor syslog remoto usando syslog-ng."
-}
