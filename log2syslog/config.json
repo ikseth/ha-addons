@@ -1,0 +1,18 @@
+{
+  "name": "Log2Syslog Add-on",
+  "version": "1.0.0",
+  "slug": "log2syslog",
+  "description": "Addon that forwards home-assistant.log to a remote syslog server using syslog-ng.",
+  "startup": "services",
+  "boot": "auto",
+  "arch": [
+    "aarch64",
+    "amd64",
+    "armhf",
+    "armv7",
+    "i386"
+  ],
+  "host_network": false,
+  "options": {},
+  "schema": {}
+}
