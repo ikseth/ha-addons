@@ -3,7 +3,7 @@ source s_ha_log {
   file("/config/home-assistant.log" follow_freq(1) flags(no-parse));
 };
 destination d_remote_syslog {
-  syslog("{{ remote_host }}" port({{ remote_port }}) local_facility("{{ facility }}"));
+  syslog("{{ remote_host }}" port({{ remote_port }}));
 };
 log {
   source(s_ha_log);
