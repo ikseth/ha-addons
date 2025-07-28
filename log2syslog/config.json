@@ -16,9 +16,6 @@
     "remote_port": "int",
     "facility": "str"
   },
-  "map": [
-    "config:ro"
-  ],
   "arch": ["amd64", "aarch64", "armv7", "i386"],
   "ports": [],
   "host_network": false
