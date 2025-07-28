@@ -1,24 +1,17 @@
-#!/bin/sh
+#!/usr/bin/with-contenv bash
+set -e
 
-# Carga opciones desde options.json (pasado por HA como /data/options.json)
+# Lee las variables desde el options.json que Home Assistant monta en /data/options.json
 REMOTE_HOST=$(jq -r '.remote_host' /data/options.json)
 REMOTE_PORT=$(jq -r '.remote_port' /data/options.json)
 FACILITY=$(jq -r '.facility' /data/options.json)
 
-# Genera el syslog-ng.conf dinámicamente
-cat > /etc/syslog-ng/syslog-ng.conf <<EOF
-@version: 3.38
-source s_ha_log {
-  file("/config/home-assistant.log" follow_freq(1) flags(no-parse));
-};
-destination d_remote_syslog {
-  syslog("${REMOTE_HOST}" port(${REMOTE_PORT}) facility(${FACILITY}));
-};
-log {
-  source(s_ha_log);
-  destination(d_remote_syslog);
-};
-EOF
+# Genera el syslog-ng.conf final a partir de la plantilla
+sed \
+  -e "s|{{ remote_host }}|$REMOTE_HOST|g" \
+  -e "s|{{ remote_port }}|$REMOTE_PORT|g" \
+  -e "s|{{ facility }}|$FACILITY|g" \
+  /syslog-ng.conf.template > /syslog-ng.conf
 
-# Arranca syslog-ng en foreground
-exec syslog-ng -Fv
+# Arranca syslog-ng usando el nuevo fichero generado
+syslog-ng -F -f /syslog-ng.conf
