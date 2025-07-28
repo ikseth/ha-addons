@@ -9,3 +9,8 @@ log {
   source(s_ha_log);
   destination(d_remote_syslog);
 };
+destination d_local_debug { file("/tmp/syslog-ng-debug.log"); };
+log {
+  source(s_ha_log);
+  destination(d_local_debug);
+};
