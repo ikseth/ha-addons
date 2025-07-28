@@ -1,6 +1,6 @@
 {
   "name": "Home Assistant Log to Syslog",
-  "version": "1.0.0",
+  "version": "1.1.7",
   "slug": "ha-log-syslog",
   "description": "Reenvía home-assistant.log a un servidor syslog remoto usando syslog-ng.",
   "startup": "services",
