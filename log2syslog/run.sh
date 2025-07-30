@@ -1,24 +1,35 @@
-#!/usr/bin/env bash
-set -e
+#!/bin/sh
 
-timestamp() { date '+%Y-%m-%d %H:%M:%S'; }
+LOG_FILE="/data/addon-debug.log"
 
-REMOTE_HOST=$(jq -r '.remote_host' /data/options.json)
-REMOTE_PORT=$(jq -r '.remote_port' /data/options.json)
-FACILITY=$(jq -r '.facility' /data/options.json)
+log() {
+    echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"
+}
 
-echo "[$(timestamp)] === Parámetros de reenvío: $REMOTE_HOST $REMOTE_PORT $FACILITY ===" >&2
-echo "[$(timestamp)] === Contenido de syslog-ng.conf generado ===" >&2
-cat /syslog-ng.conf.template | \
-  sed -e "s|{{ remote_host }}|$REMOTE_HOST|g" \
-      -e "s|{{ remote_port }}|$REMOTE_PORT|g" \
-      -e "s|{{ facility }}|$FACILITY|g" \
-      | tee /syslog-ng.conf >&2
+log "===== Add-on INIT ====="
 
-echo "[$(timestamp)] === Listado de /config dentro del contenedor ===" >&2
-ls -l /config >&2 || echo "[$(timestamp)] No existe /config" >&2
+if [ ! -f /config/home-assistant.log ]; then
+    log "ERROR: /config/home-assistant.log NO EXISTE."
+    exit 1
+else
+    log "/config/home-assistant.log existe. Iniciando seguimiento..."
+fi
 
-echo "[$(timestamp)] === Entradas recientes en el log de HA ===" >&2
-tail -20 /config/home-assistant.log >&2 || echo "[$(timestamp)] No existe home-assistant.log" >&2
+# Mostrar tamaño/inodo actual
+ls -li /config/home-assistant.log | tee -a "$LOG_FILE"
 
-exec syslog-ng -F -f /syslog-ng.conf
+# Mostrar últimas líneas del log de HA
+tail -n 10 /config/home-assistant.log | tee -a "$LOG_FILE"
+
+log "Generando configuración dinámica de syslog-ng..."
+
+# (Aquí generas el syslog-ng.conf dinámico)
+# ...
+
+log "Configuración syslog-ng generada:"
+cat /etc/syslog-ng/syslog-ng.conf | tee -a "$LOG_FILE"
+
+log "Arrancando syslog-ng en foreground con debug..."
+
+syslog-ng -Fvde 2>&1 | tee -a "$LOG_FILE"
+
