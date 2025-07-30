@@ -1,68 +1,26 @@
 #!/bin/sh
 
-LOG_FILE="/data/addon-debug.log"
+set -e
 
-log() {
-    echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"
-}
+# Rutas
+TEMPLATE="/etc/syslog-ng/syslog-ng.conf.template"
+CONFIG="/etc/syslog-ng/syslog-ng.conf"
+OPTIONS="/data/options.json"
 
-log "===== Add-on INIT ====="
+# Leer opciones desde options.json (usa jq)
+DEST_IP=$(jq -r .dest_ip "$OPTIONS")
+DEST_PORT=$(jq -r .dest_port "$OPTIONS")
+FACILITY=$(jq -r .facility "$OPTIONS")
 
-if [ ! -f /config/home-assistant.log ]; then
-    log "ERROR: /config/home-assistant.log NO EXISTE."
-    exit 1
-else
-    log "/config/home-assistant.log existe. Iniciando seguimiento..."
-fi
+# Sustituye las variables en la plantilla
+cat "$TEMPLATE" | \
+  sed "s|{{DEST_IP}}|$DEST_IP|g" | \
+  sed "s|{{DEST_PORT}}|$DEST_PORT|g" | \
+  sed "s|{{FACILITY}}|$FACILITY|g" \
+  > "$CONFIG"
 
-# Mostrar tamaño/inodo actual
-ls -li /config/home-assistant.log | tee -a "$LOG_FILE"
+echo "==== syslog-ng.conf generado ===="
+cat "$CONFIG"
 
-# Mostrar últimas líneas del log de HA
-tail -n 10 /config/home-assistant.log | tee -a "$LOG_FILE"
-
-log "Generando configuración dinámica de syslog-ng..."
-
-# Variables de configuración (pueden venir de options.json, ENV, etc)
-DEST_IP="${DEST_IP:-192.168.50.62}"
-DEST_PORT="${DEST_PORT:-514}"
-FACILITY="${FACILITY:-local5}"
-
-cat > /etc/syslog-ng/syslog-ng.conf <<EOF
-@version: 4.1
-
-source s_ha_log {
-  file("/config/home-assistant.log"
-    follow-freq(1)
-    flags(no-parse, follow-filename)
-    program-override("homeassistant")
-  );
-};
-
-destination d_remote_udp {
-  udp("${DEST_IP}" port(${DEST_PORT})
-      localport(0)
-      so-keepalive(yes)
-      log-fifo-size(1000)
-      flush-lines(1)
-  );
-};
-
-filter f_facility {
-    facility(${FACILITY});
-};
-
-log {
-  source(s_ha_log);
-  # filter(f_facility);
-  destination(d_remote_udp);
-};
-EOF
-
-log "Configuración syslog-ng generada:"
-cat /etc/syslog-ng/syslog-ng.conf | tee -a "$LOG_FILE"
-
-log "Arrancando syslog-ng en foreground con debug..."
-
-syslog-ng -Fvde 2>&1 | tee -a "$LOG_FILE"
-
+echo "==== Arrancando syslog-ng ===="
+exec syslog-ng -Fvde
