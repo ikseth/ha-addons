@@ -1,36 +1,30 @@
 {
-  "name": "Log2Syslog Add-on",
-  "version": "1.1.9",
+  "name": "Log2Syslog UDP Forwarder",
+  "version": "1.1.10",
   "slug": "log2syslog",
-  "description": "Addon that forwards home-assistant.log to a remote syslog server using syslog-ng.",
-  "startup": "services",  
+  "description": "Reenvía el log de Home Assistant por UDP/Syslog a un servidor remoto.",
+  "startup": "services",
   "boot": "auto",
-  "init": false,
-  "arch": [
-    "aarch64",
-    "amd64",
-    "armhf",
-    "armv7",
-    "i386"
+  "panel_icon": "mdi:clipboard-text",
+  "ingress": false,
+  "host_network": true,
+  "map": [
+    "config:ro"
   ],
-  "host_network": false,
   "options": {
-    "remote_host": "str",
-    "remote_port": "int",
-    "facility": "str"
-  },
-  "options": {
-    "remote_host": "192.168.50.62",
-    "remote_port": 514,
+    "dest_ip": "192.168.50.62",
+    "dest_port": 514,
     "facility": "local5"
   },
   "schema": {
-    "remote_host": "str",
-    "remote_port": "int",
+    "dest_ip": "str",
+    "dest_port": "int",
     "facility": "str"
   },
-  "map": [
-    "config:ro"
+  "arch": [
+    "aarch64",
+    "amd64",
+    "armv7",
+    "i386"
   ]
 }
-
