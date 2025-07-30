@@ -34,7 +34,7 @@ cat > /etc/syslog-ng/syslog-ng.conf <<EOF
 source s_ha_log {
   file("/config/home-assistant.log"
     follow-freq(1)
-    flags(no-parse, follow-filename, keep-alive)
+    flags(no-parse, follow-filename)
     program-override("homeassistant")
   );
 };
