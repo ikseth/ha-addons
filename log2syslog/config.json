@@ -1,6 +1,6 @@
 {
   "name": "Log2Syslog UDP Forwarder",
-  "version": "1.1.10",
+  "version": "1.1.11",
   "slug": "log2syslog",
   "description": "Reenvía el log de Home Assistant por UDP/Syslog a un servidor remoto.",
   "startup": "services",
