@@ -1,16 +1,37 @@
-@version: 4.0
+@version: 4.1
+
+# Source: lee el log de Home Assistant
 source s_ha_log {
-  file("/config/home-assistant.log" follow_freq(1) flags(no-parse));
+  file("/config/home-assistant.log"
+    follow-freq(1)
+    flags(no-parse, follow-filename, keep-alive)
+    program-override("homeassistant")
+  );
 };
-destination d_remote_syslog {
-  syslog("{{ remote_host }}" port({{ remote_port }}));
+
+# Destination: syslog UDP remoto con parámetros variables
+destination d_remote_udp {
+  udp("${DEST_IP}" port(${DEST_PORT})
+      localport(0)
+      so-keepalive(yes)
+      log-fifo-size(1000)
+      flush-lines(1)
+  );
 };
+
+# Filter por facility (opcional, sólo reenvía si coincide la facility)
+filter f_facility {
+    facility(${FACILITY});
+};
+
+# Pipeline log
 log {
   source(s_ha_log);
-  destination(d_remote_syslog);
+  # Si quieres filtrar por facility, descomenta la línea siguiente:
+  # filter(f_facility);
+  destination(d_remote_udp);
 };
-destination d_local_debug { file("/tmp/syslog-ng-debug.log"); };
-log {
-  source(s_ha_log);
-  destination(d_local_debug);
-};
+
+# Destino adicional a fichero local para depuración (opcional)
+# destination d_debug { file("/data/syslog-ng-ha.log"); };
+# log { source(s_ha_log); destination(d_debug); };
