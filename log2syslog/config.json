@@ -1,30 +1,25 @@
 {
   "name": "Log2Syslog UDP Forwarder",
-  "version": "1.1.14",
+  "version": "1.1.15",
   "slug": "log2syslog",
-  "description": "Reenvía el log de Home Assistant por UDP/Syslog a un servidor remoto.",
+  "description": "Reenvía el log de Home Assistant por UDP a un servidor remoto y graba copia local para depuración.",
   "startup": "services",
   "boot": "auto",
-  "panel_icon": "mdi:clipboard-text",
-  "ingress": false,
   "host_network": true,
   "map": [
-    "config:ro"
+    "config:ro",
+    "data:rw"
   ],
   "options": {
     "dest_ip": "192.168.50.62",
     "dest_port": 514,
-    "facility": "local5"
+    "debug": true
   },
   "schema": {
     "dest_ip": "str",
     "dest_port": "int",
-    "facility": "str"
+    "debug": "bool"
   },
-  "arch": [
-    "aarch64",
-    "amd64",
-    "armv7",
-    "i386"
-  ]
+  "arch": ["aarch64","amd64","armv7","i386"]
 }
+
