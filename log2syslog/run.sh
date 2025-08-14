@@ -5,8 +5,9 @@ TEMPLATE="/etc/syslog-ng/syslog-ng.conf.template"
 CONFIG="/etc/syslog-ng/syslog-ng.conf"
 OPTIONS="/data/options.json"
 LOCAL_LOG="/data/syslog-ng-ha.log"
+INTERNAL_LOG="/data/syslog-ng-internal.log"
+LOOPBACK_CAPTURE="/data/udp-loopback.log"
 
-# Lee opciones del usuario
 DEST_IP=$(jq -r .dest_ip "$OPTIONS")
 DEST_PORT=$(jq -r .dest_port "$OPTIONS")
 DEBUG=$(jq -r .debug "$OPTIONS")
@@ -16,21 +17,43 @@ sed -e "s|{{DEST_IP}}|$DEST_IP|g" \
     -e "s|{{DEST_PORT}}|$DEST_PORT|g" \
     "$TEMPLATE" > "$CONFIG"
 
-echo "[INIT] Config generado para syslog-ng:"
+echo "[INIT] Config generado:"
 cat "$CONFIG"
 echo "[INIT] Opciones: dest_ip=$DEST_IP dest_port=$DEST_PORT debug=$DEBUG"
 
-# Asegura fichero local de depuración
-touch "$LOCAL_LOG"
+# Archivos visibles para depuración
+touch "$LOCAL_LOG" "$INTERNAL_LOG" "$LOOPBACK_CAPTURE"
 
-# Comprobación de sintaxis (no arranca, solo valida)
-syslog-ng -s -f "$CONFIG" || { echo "[ERROR] Sintaxis inválida en syslog-ng.conf"; exit 1; }
+# === Diagnóstico de red previo (sin necesidad de docker exec) ===
+echo "[NET] Rutas del contenedor:"
+ip route || true
 
-# Si está en debug, vuelca el local en vivo al registro del add-on (sin bloquear)
+echo "[NET] Prueba de reachability (ping -c1 -W1) a $DEST_IP:"
+ping -c1 -W1 "$DEST_IP" >/dev/null 2>&1 && echo "[NET] ping OK" || echo "[NET] ping FALLÓ (puede estar bloqueado ICMP y no significa nada para UDP)"
+
+echo "[NET] Probing UDP con netcat (modo scan) hacia $DEST_IP:$DEST_PORT:"
+# Busybox nc soporta -z -u -v en alpine/busybox-extras
+nc -zvu "$DEST_IP" "$DEST_PORT" >/data/nc-probe.log 2>&1 && PROBE="OK" || PROBE="FALLO"
+echo "[NET] nc -zvu resultado: $PROBE (ver /data/nc-probe.log)"
+
+# === Listener UDP local para capturar lo que syslog-ng envía al loopback ===
+# Nota: esto NO bloquea el script; se deja en background
+echo "[LOOPBACK] Levantando listener UDP local 127.0.0.1:5514 --> $LOOPBACK_CAPTURE"
+( nc -ul -p 5514 >> "$LOOPBACK_CAPTURE" 2>&1 & ) || true
+
+# === Verificación de sintaxis antes de arrancar ===
+if ! syslog-ng -s -f "$CONFIG"; then
+  echo "[ERROR] Sintaxis inválida en $CONFIG"; exit 1;
+fi
+
+# === Arranque syslog-ng ===
 if [ "$DEBUG" = "true" ]; then
-  echo "[DEBUG] Activado tail de $LOCAL_LOG al log del add-on"
+  echo "[DEBUG] Tail en vivo de $LOCAL_LOG y $INTERNAL_LOG"
   ( tail -F "$LOCAL_LOG" 2>/dev/null & ) || true
-  exec syslog-ng -Fvde
+  ( tail -F "$INTERNAL_LOG" 2>/dev/null & ) || true
+  echo "[DEBUG] Tail en vivo de loopback UDP capturado en $LOOPBACK_CAPTURE"
+  ( tail -F "$LOOPBACK_CAPTURE" 2>/dev/null & ) || true
+  exec syslog-ng -Fvde -f "$CONFIG"
 else
-  exec syslog-ng -F
+  exec syslog-ng -F -f "$CONFIG"
 fi
