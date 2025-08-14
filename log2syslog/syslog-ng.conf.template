@@ -12,7 +12,7 @@ source s_ha_log {
 # Copia local (depuración): siempre encendida para saber si leemos bien
 destination d_local_debug {
   file("/data/syslog-ng-ha.log" flush-lines(1));
-}
+};
 
 # Envío UDP al servidor remoto
 destination d_remote_udp {
