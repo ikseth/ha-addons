@@ -1,10 +1,11 @@
-FROM alpine:3.18
+FROM alpine:3.20
 
-RUN apk add --no-cache syslog-ng bash jq
+# syslog-ng + herramientas de depuración (jq para leer options.json y netcat para pruebas si hiciera falta)
+RUN apk add --no-cache syslog-ng jq busybox-extras
 
-COPY syslog-ng.conf.template /syslog-ng.conf.template
-
+# Copiamos plantilla y entrypoint
+COPY syslog-ng.conf.template /etc/syslog-ng/syslog-ng.conf.template
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 
-CMD ["/run.sh"]
+ENTRYPOINT ["/run.sh"]
