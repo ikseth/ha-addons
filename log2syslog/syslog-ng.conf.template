@@ -1,5 +1,6 @@
 @version: 3.13
 
+# Leemos el log de Home Assistant como texto plano
 source s_ha_log {
   file("/config/home-assistant.log"
     follow-freq(1)
@@ -8,21 +9,22 @@ source s_ha_log {
   );
 };
 
+# Copia local (depuración): siempre encendida para saber si leemos bien
+destination d_local_debug {
+  file("/data/syslog-ng-ha.log" flush-lines(1));
+}
+
+# Envío UDP al servidor remoto
 destination d_remote_udp {
   udp("{{DEST_IP}}" port({{DEST_PORT}})
-      localport(0)
-      so-keepalive(yes)
       log-fifo-size(1000)
       flush-lines(1)
   );
 };
 
-filter f_facility {
-    facility({{FACILITY}});
-};
-
+# Pipeline: lee -> escribe local -> envía remoto
 log {
   source(s_ha_log);
-  # filter(f_facility);
+  destination(d_local_debug);
   destination(d_remote_udp);
 };
