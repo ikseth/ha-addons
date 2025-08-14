@@ -23,6 +23,9 @@ echo "[INIT] Opciones: dest_ip=$DEST_IP dest_port=$DEST_PORT debug=$DEBUG"
 # Asegura fichero local de depuración
 touch "$LOCAL_LOG"
 
+# Comprobación de sintaxis (no arranca, solo valida)
+syslog-ng -s -f "$CONFIG" || { echo "[ERROR] Sintaxis inválida en syslog-ng.conf"; exit 1; }
+
 # Si está en debug, vuelca el local en vivo al registro del add-on (sin bloquear)
 if [ "$DEBUG" = "true" ]; then
   echo "[DEBUG] Activado tail de $LOCAL_LOG al log del add-on"
