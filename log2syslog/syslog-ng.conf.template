@@ -1,6 +1,15 @@
 @version: 3.13
 
-# Leemos el log de Home Assistant como texto plano
+# Opciones generales útiles para red/diagnóstico
+options {
+  use-dns(no);
+  chain-hostnames(no);
+  mark-freq(0);
+  stats(freq(60));
+  time-reopen(5);
+};
+
+# Fuente: log de Home Assistant (texto plano)
 source s_ha_log {
   file("/config/home-assistant.log"
     follow-freq(1)
@@ -9,9 +18,17 @@ source s_ha_log {
   );
 };
 
-# Copia local (depuración): siempre encendida para saber si leemos bien
+# Fuente: mensajes internos de syslog-ng (avisos/errores)
+source s_internal { internal(); };
+
+# Destino local (depuración): copia del HA log
 destination d_local_debug {
   file("/data/syslog-ng-ha.log" flush-lines(1));
+};
+
+# Destino local loopback UDP (para probar envío dentro del contenedor)
+destination d_udp_loop {
+  udp("127.0.0.1" port(5514) flush-lines(1));
 };
 
 # Envío UDP al servidor remoto
@@ -22,9 +39,22 @@ destination d_remote_udp {
   );
 };
 
-# Pipeline: lee -> escribe local -> envía remoto
+# Log de mensajes internos de syslog-ng a fichero
+destination d_internal_file {
+  file("/data/syslog-ng-internal.log" flush-lines(1));
+};
+
+# Pipelines:
+# 1) HA -> copia local (siempre) + loopback UDP (siempre) + remoto
 log {
   source(s_ha_log);
   destination(d_local_debug);
+  destination(d_udp_loop);
   destination(d_remote_udp);
+};
+
+# 2) Internos -> fichero (para ver si hay errores de socket/red, etc.)
+log {
+  source(s_internal);
+  destination(d_internal_file);
 };
