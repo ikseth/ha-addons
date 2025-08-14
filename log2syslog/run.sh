@@ -1,26 +1,33 @@
 #!/bin/sh
-
 set -e
 
-# Rutas
 TEMPLATE="/etc/syslog-ng/syslog-ng.conf.template"
 CONFIG="/etc/syslog-ng/syslog-ng.conf"
 OPTIONS="/data/options.json"
+LOCAL_LOG="/data/syslog-ng-ha.log"
 
-# Leer opciones desde options.json (usa jq)
+# Lee opciones del usuario
 DEST_IP=$(jq -r .dest_ip "$OPTIONS")
 DEST_PORT=$(jq -r .dest_port "$OPTIONS")
-FACILITY=$(jq -r .facility "$OPTIONS")
+DEBUG=$(jq -r .debug "$OPTIONS")
 
-# Sustituye las variables en la plantilla
-cat "$TEMPLATE" | \
-  sed "s|{{DEST_IP}}|$DEST_IP|g" | \
-  sed "s|{{DEST_PORT}}|$DEST_PORT|g" | \
-  sed "s|{{FACILITY}}|$FACILITY|g" \
-  > "$CONFIG"
+# Genera config desde plantilla
+sed -e "s|{{DEST_IP}}|$DEST_IP|g" \
+    -e "s|{{DEST_PORT}}|$DEST_PORT|g" \
+    "$TEMPLATE" > "$CONFIG"
 
-echo "==== syslog-ng.conf generado ===="
+echo "[INIT] Config generado para syslog-ng:"
 cat "$CONFIG"
+echo "[INIT] Opciones: dest_ip=$DEST_IP dest_port=$DEST_PORT debug=$DEBUG"
 
-echo "==== Arrancando syslog-ng ===="
-exec syslog-ng -Fvde
+# Asegura fichero local de depuración
+touch "$LOCAL_LOG"
+
+# Si está en debug, vuelca el local en vivo al registro del add-on (sin bloquear)
+if [ "$DEBUG" = "true" ]; then
+  echo "[DEBUG] Activado tail de $LOCAL_LOG al log del add-on"
+  ( tail -F "$LOCAL_LOG" 2>/dev/null & ) || true
+  exec syslog-ng -Fvde
+else
+  exec syslog-ng -F
+fi
