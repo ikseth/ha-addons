@@ -1,0 +1,46 @@
+{
+  "name": "HA4Linux Workstation API",
+  "version": "0.2.0",
+  "slug": "ha4linux",
+  "description": "API modular para monitorizar e interactuar con sistemas Linux desde Home Assistant.",
+  "startup": "services",
+  "boot": "auto",
+  "host_network": false,
+  "ports": {
+    "8099/tcp": 8099
+  },
+  "map": [
+    "data:rw",
+    "ssl:ro"
+  ],
+  "options": {
+    "bind_port": 8099,
+    "api_token": "change-me",
+    "tls_enabled": true,
+    "tls_certfile": "/ssl/fullchain.pem",
+    "tls_keyfile": "/ssl/privkey.pem",
+    "sensors_cpu": true,
+    "sensors_memory": true,
+    "sensors_network": true,
+    "actuator_session": true,
+    "allowed_session_users": ""
+  },
+  "schema": {
+    "bind_port": "int",
+    "api_token": "str",
+    "tls_enabled": "bool",
+    "tls_certfile": "str",
+    "tls_keyfile": "str",
+    "sensors_cpu": "bool",
+    "sensors_memory": "bool",
+    "sensors_network": "bool",
+    "actuator_session": "bool",
+    "allowed_session_users": "str"
+  },
+  "arch": [
+    "aarch64",
+    "amd64",
+    "armv7",
+    "i386"
+  ]
+}

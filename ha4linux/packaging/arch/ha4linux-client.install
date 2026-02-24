@@ -1,0 +1,11 @@
+post_install() {
+  /usr/lib/ha4linux/install-client.sh --skip-deps
+}
+
+post_upgrade() {
+  /usr/lib/ha4linux/install-client.sh --skip-deps
+}
+
+pre_remove() {
+  /usr/lib/ha4linux/uninstall-client.sh || true
+}
