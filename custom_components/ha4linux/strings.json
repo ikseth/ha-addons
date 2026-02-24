@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HA4Linux",
+        "description": "Connect Home Assistant with a HA4Linux API endpoint.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "token": "API token",
+          "use_https": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect",
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This host is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HA4Linux options",
+        "data": {
+          "scan_interval": "Scan interval (seconds)"
+        }
+      }
+    }
+  }
+}

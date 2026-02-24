@@ -1,0 +1,22 @@
+[Unit]
+Description=HA4Linux Client API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ha4linux
+Group=ha4linux
+EnvironmentFile=/etc/ha4linux/ha4linux.env
+WorkingDirectory=/opt/ha4linux
+ExecStart=/opt/ha4linux/.venv/bin/python -m app.main
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/ha4linux /var/log/ha4linux /etc/ha4linux
+
+[Install]
+WantedBy=multi-user.target

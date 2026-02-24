@@ -1,0 +1,48 @@
+#!/usr/bin/with-contenv bashio
+set -e
+
+OPTIONS_FILE="/data/options.json"
+
+export HA4LINUX_BIND_HOST="0.0.0.0"
+export HA4LINUX_BIND_PORT="8099"
+export HA4LINUX_API_TOKEN=""
+export HA4LINUX_TLS_ENABLED="true"
+export HA4LINUX_TLS_CERTFILE="/ssl/fullchain.pem"
+export HA4LINUX_TLS_KEYFILE="/ssl/privkey.pem"
+export HA4LINUX_SENSORS_CPU="true"
+export HA4LINUX_SENSORS_MEMORY="true"
+export HA4LINUX_SENSORS_NETWORK="true"
+export HA4LINUX_ACTUATOR_SESSION="true"
+export HA4LINUX_ALLOWED_SESSION_USERS=""
+
+if bashio::fs.file_exists "${OPTIONS_FILE}"; then
+  export HA4LINUX_BIND_PORT="$(bashio::config 'bind_port')"
+  export HA4LINUX_API_TOKEN="$(bashio::config 'api_token')"
+  export HA4LINUX_TLS_ENABLED="$(bashio::config 'tls_enabled')"
+  export HA4LINUX_TLS_CERTFILE="$(bashio::config 'tls_certfile')"
+  export HA4LINUX_TLS_KEYFILE="$(bashio::config 'tls_keyfile')"
+  export HA4LINUX_SENSORS_CPU="$(bashio::config 'sensors_cpu')"
+  export HA4LINUX_SENSORS_MEMORY="$(bashio::config 'sensors_memory')"
+  export HA4LINUX_SENSORS_NETWORK="$(bashio::config 'sensors_network')"
+  export HA4LINUX_ACTUATOR_SESSION="$(bashio::config 'actuator_session')"
+  export HA4LINUX_ALLOWED_SESSION_USERS="$(bashio::config 'allowed_session_users')"
+fi
+
+if [ -z "${HA4LINUX_API_TOKEN}" ] || [ "${HA4LINUX_API_TOKEN}" = "null" ]; then
+  bashio::log.error "api_token is required"
+  exit 1
+fi
+
+if [ "${HA4LINUX_TLS_ENABLED}" = "true" ] || [ "${HA4LINUX_TLS_ENABLED}" = "True" ]; then
+  if [ ! -f "${HA4LINUX_TLS_CERTFILE}" ]; then
+    bashio::log.error "TLS cert not found: ${HA4LINUX_TLS_CERTFILE}"
+    exit 1
+  fi
+
+  if [ ! -f "${HA4LINUX_TLS_KEYFILE}" ]; then
+    bashio::log.error "TLS key not found: ${HA4LINUX_TLS_KEYFILE}"
+    exit 1
+  fi
+fi
+
+exec python3 -m app.main

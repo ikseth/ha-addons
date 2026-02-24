@@ -1,0 +1,14 @@
+{
+  "configuration": {
+    "bind_port": "API bind port",
+    "api_token": "Bearer token for API authentication",
+    "tls_enabled": "Enable TLS for API",
+    "tls_certfile": "TLS certificate path",
+    "tls_keyfile": "TLS key path",
+    "sensors_cpu": "Enable CPU sensor",
+    "sensors_memory": "Enable memory sensor",
+    "sensors_network": "Enable network sensor",
+    "actuator_session": "Enable active session actuator",
+    "allowed_session_users": "Comma-separated allow list of session users"
+  }
+}
