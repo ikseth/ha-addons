@@ -1,6 +1,6 @@
 {
   "name": "HA4Linux Workstation API",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "slug": "ha4linux",
   "description": "API modular para monitorizar e interactuar con sistemas Linux desde Home Assistant.",
   "startup": "services",
