@@ -51,6 +51,22 @@ async def _validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
     await api.capabilities()
 
 
+def _options_schema(defaults: dict[str, Any]) -> vol.Schema:
+    return vol.Schema(
+        {
+            vol.Required(CONF_HOST, default=defaults[CONF_HOST]): str,
+            vol.Required(CONF_PORT, default=defaults[CONF_PORT]): int,
+            vol.Required(CONF_TOKEN, default=defaults[CONF_TOKEN]): str,
+            vol.Required(CONF_USE_HTTPS, default=defaults[CONF_USE_HTTPS]): bool,
+            vol.Required(CONF_VERIFY_SSL, default=defaults[CONF_VERIFY_SSL]): bool,
+            vol.Required(CONF_SCAN_INTERVAL, default=defaults[CONF_SCAN_INTERVAL]): vol.All(
+                int,
+                vol.Range(min=5, max=300),
+            ),
+        }
+    )
+
+
 class HA4LinuxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
@@ -81,21 +97,38 @@ class HA4LinuxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class HA4LinuxOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            errors: dict[str, str] = {}
+            try:
+                await _validate_input(self.hass, user_input)
+            except HA4LinuxAuthError:
+                errors["base"] = "invalid_auth"
+            except HA4LinuxApiError:
+                errors["base"] = "cannot_connect"
+            except Exception:
+                errors["base"] = "unknown"
+            else:
+                return self.async_create_entry(title="", data=user_input)
+
+            return self.async_show_form(
+                step_id="init",
+                data_schema=_options_schema(user_input),
+                errors=errors,
+            )
 
         config_entry = self.config_entry
-        default_interval = DEFAULT_SCAN_INTERVAL
+        defaults = {
+            CONF_HOST: "192.168.59.202",
+            CONF_PORT: DEFAULT_PORT,
+            CONF_TOKEN: "",
+            CONF_USE_HTTPS: DEFAULT_USE_HTTPS,
+            CONF_VERIFY_SSL: DEFAULT_VERIFY_SSL,
+            CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+        }
         if config_entry is not None:
-            default_interval = config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            defaults.update(config_entry.data)
+            defaults.update(config_entry.options)
 
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_SCAN_INTERVAL,
-                        default=default_interval,
-                    ): vol.All(int, vol.Range(min=5, max=300))
-                }
-            ),
+            data_schema=_options_schema(defaults),
         )

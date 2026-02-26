@@ -22,13 +22,15 @@ PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
+    effective = {**entry.data, **entry.options}
+
     api = HA4LinuxApiClient(
         session=async_get_clientsession(hass),
-        host=entry.data[CONF_HOST],
-        port=entry.data[CONF_PORT],
-        token=entry.data[CONF_TOKEN],
-        use_https=entry.data[CONF_USE_HTTPS],
-        verify_ssl=entry.data[CONF_VERIFY_SSL],
+        host=effective[CONF_HOST],
+        port=effective[CONF_PORT],
+        token=effective[CONF_TOKEN],
+        use_https=effective[CONF_USE_HTTPS],
+        verify_ssl=effective[CONF_VERIFY_SSL],
     )
 
     coordinator = HA4LinuxCoordinator(hass, entry, api)
