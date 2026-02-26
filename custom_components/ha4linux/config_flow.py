@@ -75,16 +75,18 @@ class HA4LinuxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     def async_get_options_flow(config_entry):
-        return HA4LinuxOptionsFlow(config_entry)
+        return HA4LinuxOptionsFlow()
 
 
 class HA4LinuxOptionsFlow(config_entries.OptionsFlow):
-    def __init__(self, config_entry) -> None:
-        self.config_entry = config_entry
-
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
+
+        config_entry = self.config_entry
+        default_interval = DEFAULT_SCAN_INTERVAL
+        if config_entry is not None:
+            default_interval = config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
 
         return self.async_show_form(
             step_id="init",
@@ -92,7 +94,7 @@ class HA4LinuxOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Required(
                         CONF_SCAN_INTERVAL,
-                        default=self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                        default=default_interval,
                     ): vol.All(int, vol.Range(min=5, max=300))
                 }
             ),
