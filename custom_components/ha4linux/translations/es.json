@@ -27,6 +27,11 @@
       "init": {
         "title": "Opciones HA4Linux",
         "data": {
+          "host": "Host",
+          "port": "Puerto",
+          "token": "Token API",
+          "use_https": "Usar HTTPS",
+          "verify_ssl": "Verificar certificado SSL",
           "scan_interval": "Intervalo de sondeo (segundos)"
         }
       }
