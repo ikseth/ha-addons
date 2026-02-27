@@ -63,10 +63,13 @@ api_get "/v1/capabilities" | pretty_print
 echo "[3/6] Sensors"
 api_get "/v1/sensors" | pretty_print
 
-echo "[4/6] Session status (read-only)"
+echo "[4/7] App policy status (read-only)"
+api_post "/v1/actuators/app_policy/status" "{}" | pretty_print
+
+echo "[5/7] Session status (read-only)"
 api_post "/v1/actuators/session_manager/status" "{}" | pretty_print
 
-echo "[5/6] Verificacion auth negativa (debe fallar con 401)"
+echo "[6/7] Verificacion auth negativa (debe fallar con 401)"
 set +e
 HTTP_CODE=$(curl "${CURL_FLAGS[@]}" -o /dev/null -w "%{http_code}" "${BASE_URL}/v1/capabilities")
 set -e
@@ -77,8 +80,8 @@ else
 fi
 
 if [[ "$WITH_ACTUATION" == "true" ]]; then
-  echo "[6/6] Actuacion controlada: terminate"
+  echo "[7/7] Actuacion controlada: terminate"
   api_post "/v1/actuators/session_manager/terminate" "{}" | pretty_print
 else
-  echo "[6/6] Actuacion omitida (modo no intrusivo)"
+  echo "[7/7] Actuacion omitida (modo no intrusivo)"
 fi

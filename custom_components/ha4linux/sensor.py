@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
@@ -11,7 +11,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import CONF_HOST, DOMAIN
 from .coordinator import HA4LinuxCoordinator
 
 
@@ -19,7 +19,7 @@ from .coordinator import HA4LinuxCoordinator
 class HA4LinuxSensorDef:
     key: str
     description: SensorEntityDescription
-    value_fn: Callable[[dict], float | int | None]
+    value_fn: Callable[[dict[str, Any]], float | int | str | None]
 
 
 SENSOR_DEFS: tuple[HA4LinuxSensorDef, ...] = (
@@ -61,6 +61,19 @@ SENSOR_DEFS: tuple[HA4LinuxSensorDef, ...] = (
         description=SensorEntityDescription(key="network_tx_bytes", name="Network TX Bytes"),
         value_fn=lambda d: d.get("network", {}).get("data", {}).get("total_tx_bytes"),
     ),
+    HA4LinuxSensorDef(
+        key="app_policy_apps_total",
+        description=SensorEntityDescription(key="app_policy_apps_total", name="App Policies Total"),
+        value_fn=lambda d: d.get("app_policies", {}).get("data", {}).get("app_count"),
+    ),
+    HA4LinuxSensorDef(
+        key="app_policy_violation_count",
+        description=SensorEntityDescription(
+            key="app_policy_violation_count",
+            name="App Policy Violations",
+        ),
+        value_fn=lambda d: d.get("app_policies", {}).get("data", {}).get("violation_count"),
+    ),
 )
 
 
@@ -86,7 +99,7 @@ class HA4LinuxSensor(CoordinatorEntity[HA4LinuxCoordinator], SensorEntity):
 
     @property
     def device_info(self) -> DeviceInfo:
-        host = self._entry.data.get("host", "linux")
+        host = self._entry.options.get(CONF_HOST, self._entry.data.get(CONF_HOST, "linux"))
         return DeviceInfo(
             identifiers={(DOMAIN, self._entry.entry_id)},
             name=f"HA4Linux {host}",

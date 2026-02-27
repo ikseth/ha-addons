@@ -34,16 +34,29 @@ Sensores:
 - Memory Used KB
 - Network RX Bytes
 - Network TX Bytes
+- App Policies Total
+- App Policy Violations
 
 Switch (si el actuador existe):
 
 - Active Graphical Session
+- App Allowed `<app_id>` (uno por cada app declarada en politicas)
 
 `ON` intenta activar sesion grafica.
 `OFF` intenta terminar sesion grafica activa.
+
+En switches de apps:
+
+- `ON` => `allow` (permitir app)
+- `OFF` => `block` (bloquear app)
 
 ## Opciones
 
 Desde la entrada de integracion:
 
+- `Host`
+- `Port`
+- `Token API`
+- `Use HTTPS`
+- `Verify SSL`
 - `Scan interval` (segundos)

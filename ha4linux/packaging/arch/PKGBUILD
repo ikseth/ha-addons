@@ -1,5 +1,5 @@
 pkgname=ha4linux-client
-pkgver=0.2.1
+pkgver=0.3.0
 pkgrel=1
 pkgdesc="HA4Linux client API installer and service"
 arch=('any')

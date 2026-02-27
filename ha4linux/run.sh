@@ -12,8 +12,12 @@ export HA4LINUX_TLS_KEYFILE="/ssl/privkey.pem"
 export HA4LINUX_SENSORS_CPU="true"
 export HA4LINUX_SENSORS_MEMORY="true"
 export HA4LINUX_SENSORS_NETWORK="true"
+export HA4LINUX_SENSORS_APP_POLICIES="true"
 export HA4LINUX_ACTUATOR_SESSION="true"
+export HA4LINUX_ACTUATOR_APP_POLICY="true"
 export HA4LINUX_ALLOWED_SESSION_USERS=""
+export HA4LINUX_APP_POLICY_FILE="/data/app_policies.json"
+export HA4LINUX_APP_POLICY_USE_SUDO_KILL="true"
 
 if bashio::fs.file_exists "${OPTIONS_FILE}"; then
   export HA4LINUX_BIND_PORT="$(bashio::config 'bind_port')"
@@ -24,8 +28,12 @@ if bashio::fs.file_exists "${OPTIONS_FILE}"; then
   export HA4LINUX_SENSORS_CPU="$(bashio::config 'sensors_cpu')"
   export HA4LINUX_SENSORS_MEMORY="$(bashio::config 'sensors_memory')"
   export HA4LINUX_SENSORS_NETWORK="$(bashio::config 'sensors_network')"
+  export HA4LINUX_SENSORS_APP_POLICIES="$(bashio::config 'sensors_app_policies')"
   export HA4LINUX_ACTUATOR_SESSION="$(bashio::config 'actuator_session')"
+  export HA4LINUX_ACTUATOR_APP_POLICY="$(bashio::config 'actuator_app_policy')"
   export HA4LINUX_ALLOWED_SESSION_USERS="$(bashio::config 'allowed_session_users')"
+  export HA4LINUX_APP_POLICY_FILE="$(bashio::config 'app_policy_file')"
+  export HA4LINUX_APP_POLICY_USE_SUDO_KILL="$(bashio::config 'app_policy_use_sudo_kill')"
 fi
 
 if [ -z "${HA4LINUX_API_TOKEN}" ] || [ "${HA4LINUX_API_TOKEN}" = "null" ]; then

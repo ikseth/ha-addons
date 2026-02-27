@@ -1,8 +1,11 @@
 from typing import Any
 
+from app.actuators.app_policy import AppPolicyActuator
 from app.actuators.base import Actuator
 from app.actuators.session_manager import SessionManagerActuator
+from app.core.app_policy_manager import AppPolicyManager
 from app.core.config import Settings
+from app.sensors.app_policies import AppPoliciesSensor
 from app.sensors.base import Sensor
 from app.sensors.cpu_load import CpuLoadSensor
 from app.sensors.memory import MemorySensor
@@ -14,6 +17,7 @@ class ModuleRegistry:
         self.settings = settings
         self.sensors: dict[str, Sensor] = {}
         self.actuators: dict[str, Actuator] = {}
+        self.app_policy_manager: AppPolicyManager | None = None
 
     def load(self) -> None:
         if self.settings.sensors_cpu:
@@ -24,6 +28,19 @@ class ModuleRegistry:
 
         if self.settings.sensors_network:
             self.sensors[NetworkSensor.id] = NetworkSensor()
+
+        if self.settings.sensors_app_policies or self.settings.actuator_app_policy:
+            self.app_policy_manager = AppPolicyManager(
+                policy_file=self.settings.app_policy_file,
+                use_sudo_kill=self.settings.app_policy_use_sudo_kill,
+            )
+            self.app_policy_manager.load()
+
+            if self.settings.sensors_app_policies:
+                self.sensors[AppPoliciesSensor.id] = AppPoliciesSensor(self.app_policy_manager)
+
+            if self.settings.actuator_app_policy:
+                self.actuators[AppPolicyActuator.id] = AppPolicyActuator(self.app_policy_manager)
 
         if self.settings.actuator_session:
             self.actuators[SessionManagerActuator.id] = SessionManagerActuator(

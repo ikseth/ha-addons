@@ -4,10 +4,12 @@ Add-on modular para Home Assistant orientado a monitorizacion y control operativ
 
 ## Estado actual
 
-Version inicial funcional `0.2.0` con:
+Version funcional `0.3.0` con:
 
-- Sensores minimos: `cpu_load`, `memory`, `network`.
-- Actuador minimo: `session_manager` para sesion grafica activa (`status`, `activate`, `terminate`).
+- Sensores base: `cpu_load`, `memory`, `network`.
+- Sensor modular de politicas de apps: `app_policies`.
+- Actuador de sesion grafica: `session_manager` (`status`, `activate`, `terminate`).
+- Actuador modular de politicas de apps: `app_policy` (`status`, `allow`, `block`, `enforce`, `reload`).
 - Seguridad de transporte: TLS configurable (`tls_enabled`, `tls_certfile`, `tls_keyfile`).
 - Seguridad de API: token Bearer (`api_token`).
 
@@ -17,24 +19,42 @@ Version inicial funcional `0.2.0` con:
 - Sensores = entidades de telemetria.
 - Actuadores = entidades tipo switch/button para acciones controladas.
 
-## Requisitos para actuar sobre sesiones Linux
+## Control de apps (Kodi y otras)
 
-Para acciones de sesion se recomienda ejecutar los comandos con un usuario dedicado (`ha4linux`) y permisos `sudo` acotados.
+El control es generico por politica declarativa (JSON), no hardcodeado a una app concreta.
 
-### Ejemplo de usuario/grupo
+Ruta por defecto en add-on:
 
-```bash
-sudo groupadd --system ha4linux
-sudo useradd --system --gid ha4linux --home /var/lib/ha4linux --shell /usr/sbin/nologin ha4linux
+- `/data/app_policies.json`
+
+Ruta por defecto en instalador Linux:
+
+- `/etc/ha4linux/policies/apps.json`
+
+Ejemplo de politica:
+
+```json
+{
+  "apps": [
+    {
+      "id": "kodi",
+      "process_names": ["kodi.bin", "kodi"],
+      "service_names": [],
+      "allowed": true,
+      "action_on_block": "terminate",
+      "monitor_only": false
+    }
+  ]
+}
 ```
 
-### Ejemplo de sudoers minimo
+Semantica:
 
-```sudoers
-Cmnd_Alias HA4LINUX_SESSION = /usr/bin/loginctl activate *, /usr/bin/loginctl terminate-session *
-ha4linux ALL=(root) NOPASSWD: HA4LINUX_SESSION
-Defaults:ha4linux !requiretty
-```
+- `allowed=true`: la app esta permitida.
+- `allowed=false`: la app queda bloqueada.
+- `action_on_block=terminate`: termina procesos detectados.
+- `action_on_block=stop_service`: intenta parar servicios declarados via `sudo -n systemctl stop`.
+- `monitor_only=true`: solo monitoriza, sin aplicar bloqueo.
 
 ## API basica
 
@@ -44,6 +64,29 @@ Defaults:ha4linux !requiretty
 - `POST /v1/actuators/session_manager/status`
 - `POST /v1/actuators/session_manager/activate`
 - `POST /v1/actuators/session_manager/terminate`
+- `POST /v1/actuators/app_policy/status`
+- `POST /v1/actuators/app_policy/allow`
+- `POST /v1/actuators/app_policy/block`
+- `POST /v1/actuators/app_policy/enforce`
+- `POST /v1/actuators/app_policy/reload`
+
+## Requisitos para acciones privilegiadas
+
+### Sesion grafica
+
+```sudoers
+Cmnd_Alias HA4LINUX_SESSION = /usr/bin/loginctl activate *, /usr/bin/loginctl terminate-session *
+ha4linux ALL=(root) NOPASSWD: HA4LINUX_SESSION
+Defaults:ha4linux !requiretty
+```
+
+### Politicas con stop de servicios
+
+```sudoers
+Cmnd_Alias HA4LINUX_APPS = /usr/bin/systemctl stop *
+ha4linux ALL=(root) NOPASSWD: HA4LINUX_APPS
+Defaults:ha4linux !requiretty
+```
 
 ## Notas de despliegue
 

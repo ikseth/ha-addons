@@ -31,10 +31,23 @@
 - `cpu_load`: carga media y numero de CPUs.
 - `memory`: memoria total/disponible/usada.
 - `network`: trafico RX/TX total e interfaces.
+- `app_policies`: estado de politicas por aplicacion (running/violating/allowed).
 
 ### Actuadores
 
 - `session_manager`: `status`, `activate`, `terminate` sobre sesiones graficas (`x11`/`wayland`).
+- `app_policy`: `status`, `allow`, `block`, `enforce`, `reload` para control generico de apps.
+
+## Politicas de aplicaciones
+
+Fuente declarativa en fichero JSON (`HA4LINUX_APP_POLICY_FILE`), con estructura:
+
+- `id`: identificador estable.
+- `process_names`: procesos a vigilar/bloquear.
+- `service_names`: servicios a vigilar/bloquear.
+- `allowed`: permitido/bloqueado.
+- `action_on_block`: `terminate` | `stop_service` | `none`.
+- `monitor_only`: solo observacion.
 
 ## Seguridad
 

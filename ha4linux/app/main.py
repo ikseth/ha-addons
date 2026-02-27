@@ -10,7 +10,7 @@ settings = Settings()
 registry = ModuleRegistry(settings=settings)
 registry.load()
 
-app = FastAPI(title="HA4Linux", version="0.2.1")
+app = FastAPI(title="HA4Linux", version="0.3.0")
 
 
 def require_auth(authorization: str | None = Header(default=None)) -> None:
