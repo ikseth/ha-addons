@@ -1,3 +1,4 @@
 Cmnd_Alias HA4LINUX_SESSION = /usr/bin/loginctl activate *, /usr/bin/loginctl terminate-session *
-ha4linux ALL=(root) NOPASSWD: HA4LINUX_SESSION
+Cmnd_Alias HA4LINUX_APPS = /usr/bin/systemctl stop *, /bin/kill -15 *, /bin/kill -9 *, /usr/bin/kill -15 *, /usr/bin/kill -9 *
+ha4linux ALL=(root) NOPASSWD: HA4LINUX_SESSION, HA4LINUX_APPS
 Defaults:ha4linux !requiretty

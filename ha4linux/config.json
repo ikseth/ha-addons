@@ -1,6 +1,6 @@
 {
   "name": "HA4Linux Workstation API",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "slug": "ha4linux",
   "description": "API modular para monitorizar e interactuar con sistemas Linux desde Home Assistant.",
   "startup": "services",
@@ -22,8 +22,12 @@
     "sensors_cpu": true,
     "sensors_memory": true,
     "sensors_network": true,
+    "sensors_app_policies": true,
     "actuator_session": true,
-    "allowed_session_users": ""
+    "actuator_app_policy": true,
+    "allowed_session_users": "",
+    "app_policy_file": "/data/app_policies.json",
+    "app_policy_use_sudo_kill": true
   },
   "schema": {
     "bind_port": "int",
@@ -34,8 +38,12 @@
     "sensors_cpu": "bool",
     "sensors_memory": "bool",
     "sensors_network": "bool",
+    "sensors_app_policies": "bool",
     "actuator_session": "bool",
-    "allowed_session_users": "str"
+    "actuator_app_policy": "bool",
+    "allowed_session_users": "str",
+    "app_policy_file": "str",
+    "app_policy_use_sudo_kill": "bool"
   },
   "arch": [
     "aarch64",

@@ -32,11 +32,15 @@ class HA4LinuxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "capabilities": capabilities,
                 "sensors": sensors,
                 "session": None,
+                "app_policy": None,
             }
 
             actuators = capabilities.get("actuators", [])
             if isinstance(actuators, list) and "session_manager" in actuators:
                 data["session"] = await self.api.session_status()
+
+            if isinstance(actuators, list) and "app_policy" in actuators:
+                data["app_policy"] = await self.api.app_policy_status()
 
             return data
         except HA4LinuxApiError as exc:

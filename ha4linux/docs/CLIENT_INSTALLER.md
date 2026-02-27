@@ -26,6 +26,7 @@ Esto realiza:
 - Instalacion en `/opt/ha4linux`
 - Config en `/etc/ha4linux/ha4linux.env`
 - TLS autofirmado en `/etc/ha4linux/certs`
+- Politicas de apps en `/etc/ha4linux/policies/apps.json`
 - Servicio `systemd` `ha4linux.service`
 - Politica `sudoers` limitada para `loginctl`
 

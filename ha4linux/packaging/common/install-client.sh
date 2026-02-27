@@ -13,6 +13,8 @@ SUDOERS_SRC="${HA4LINUX_ROOT}/packaging/assets/sudoers.ha4linux"
 INSTALL_DIR="/opt/ha4linux"
 ETC_DIR="/etc/ha4linux"
 CERT_DIR="/etc/ha4linux/certs"
+POLICY_DIR="/etc/ha4linux/policies"
+POLICY_FILE="/etc/ha4linux/policies/apps.json"
 ENV_FILE="/etc/ha4linux/ha4linux.env"
 SERVICE_FILE="/etc/systemd/system/ha4linux.service"
 SUDOERS_FILE="/etc/sudoers.d/ha4linux"
@@ -91,7 +93,9 @@ install_files() {
   [[ -d "${APP_SRC}" ]] || fail "App source not found at ${APP_SRC}"
   [[ -f "${REQ_SRC}" ]] || fail "requirements.txt not found"
 
-  mkdir -p "${INSTALL_DIR}" "${ETC_DIR}" "${CERT_DIR}" "${LOG_DIR}" "${DATA_DIR}"
+  mkdir -p "${INSTALL_DIR}" "${ETC_DIR}" "${CERT_DIR}" "${POLICY_DIR}" "${LOG_DIR}" "${DATA_DIR}"
+  chown root:ha4linux "${POLICY_DIR}"
+  chmod 770 "${POLICY_DIR}"
 
   cp -a "${APP_SRC}" "${INSTALL_DIR}/"
   cp -a "${REQ_SRC}" "${INSTALL_DIR}/requirements.txt"
@@ -108,6 +112,18 @@ install_files() {
     log "Generated initial API token in ${ENV_FILE}"
   fi
 
+  # Keep config forwards-compatible during upgrades.
+  append_if_missing() {
+    key="$1"; value="$2"
+    if ! grep -q "^${key}=" "${ENV_FILE}"; then
+      echo "${key}=${value}" >> "${ENV_FILE}"
+    fi
+  }
+  append_if_missing HA4LINUX_SENSORS_APP_POLICIES true
+  append_if_missing HA4LINUX_ACTUATOR_APP_POLICY true
+  append_if_missing HA4LINUX_APP_POLICY_FILE "${POLICY_FILE}"
+  append_if_missing HA4LINUX_APP_POLICY_USE_SUDO_KILL true
+
   if [[ ! -f "${CERT_DIR}/server.crt" || ! -f "${CERT_DIR}/server.key" ]]; then
     HOST_CN="$(hostname -f 2>/dev/null || hostname)"
     openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
@@ -118,6 +134,29 @@ install_files() {
     chmod 644 "${CERT_DIR}/server.crt"
     chown root:ha4linux "${CERT_DIR}/server.key" "${CERT_DIR}/server.crt"
     log "Generated self-signed TLS certificate in ${CERT_DIR}"
+  fi
+
+  if [[ ! -f "${POLICY_FILE}" ]]; then
+    cat > "${POLICY_FILE}" << 'EOF_POLICY'
+{
+  "apps": [
+    {
+      "id": "kodi",
+      "process_names": ["kodi.bin", "kodi"],
+      "service_names": [],
+      "allowed": true,
+      "action_on_block": "terminate",
+      "monitor_only": false
+    }
+  ]
+}
+EOF_POLICY
+    chmod 640 "${POLICY_FILE}"
+    chown root:ha4linux "${POLICY_FILE}"
+    log "Created default app policy file in ${POLICY_FILE}"
+  else
+    chown root:ha4linux "${POLICY_FILE}"
+    chmod 660 "${POLICY_FILE}"
   fi
 }
 

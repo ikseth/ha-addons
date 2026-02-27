@@ -8,7 +8,11 @@
     "sensors_cpu": "Enable CPU sensor",
     "sensors_memory": "Enable memory sensor",
     "sensors_network": "Enable network sensor",
+    "sensors_app_policies": "Enable app policy sensor",
     "actuator_session": "Enable active session actuator",
-    "allowed_session_users": "Comma-separated allow list of session users"
+    "actuator_app_policy": "Enable app policy actuator",
+    "allowed_session_users": "Comma-separated allow list of session users",
+    "app_policy_file": "App policy JSON file path",
+    "app_policy_use_sudo_kill": "Use sudo to terminate blocked processes from other users"
   }
 }

@@ -82,3 +82,23 @@ class HA4LinuxApiClient:
 
     async def session_terminate(self) -> dict[str, Any]:
         return await self._request("POST", "/v1/actuators/session_manager/terminate", payload={})
+
+    async def app_policy_status(self, app_id: str | None = None) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if app_id:
+            payload["app_id"] = app_id
+        return await self._request("POST", "/v1/actuators/app_policy/status", payload=payload)
+
+    async def app_policy_allow(self, app_id: str) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            "/v1/actuators/app_policy/allow",
+            payload={"app_id": app_id},
+        )
+
+    async def app_policy_block(self, app_id: str) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            "/v1/actuators/app_policy/block",
+            payload={"app_id": app_id},
+        )
