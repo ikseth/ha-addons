@@ -3,7 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfInformation
 from homeassistant.core import HomeAssistant
@@ -25,12 +30,22 @@ class HA4LinuxSensorDef:
 SENSOR_DEFS: tuple[HA4LinuxSensorDef, ...] = (
     HA4LinuxSensorDef(
         key="cpu_load_1",
-        description=SensorEntityDescription(key="cpu_load_1", name="CPU Load 1m"),
+        description=SensorEntityDescription(
+            key="cpu_load_1",
+            name="CPU Load 1m",
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=2,
+        ),
         value_fn=lambda d: d.get("cpu_load", {}).get("data", {}).get("load_1"),
     ),
     HA4LinuxSensorDef(
         key="cpu_load_5",
-        description=SensorEntityDescription(key="cpu_load_5", name="CPU Load 5m"),
+        description=SensorEntityDescription(
+            key="cpu_load_5",
+            name="CPU Load 5m",
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=2,
+        ),
         value_fn=lambda d: d.get("cpu_load", {}).get("data", {}).get("load_5"),
     ),
     HA4LinuxSensorDef(
@@ -39,6 +54,8 @@ SENSOR_DEFS: tuple[HA4LinuxSensorDef, ...] = (
             key="memory_used_percent",
             name="Memory Used",
             native_unit_of_measurement=PERCENTAGE,
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=2,
         ),
         value_fn=lambda d: d.get("memory", {}).get("data", {}).get("used_percent"),
     ),
@@ -48,17 +65,33 @@ SENSOR_DEFS: tuple[HA4LinuxSensorDef, ...] = (
             key="memory_used_kb",
             name="Memory Used KB",
             native_unit_of_measurement=UnitOfInformation.KIBIBYTES,
+            device_class=SensorDeviceClass.DATA_SIZE,
+            state_class=SensorStateClass.MEASUREMENT,
         ),
         value_fn=lambda d: d.get("memory", {}).get("data", {}).get("used_kb"),
     ),
     HA4LinuxSensorDef(
         key="network_rx_bytes",
-        description=SensorEntityDescription(key="network_rx_bytes", name="Network RX Bytes"),
+        description=SensorEntityDescription(
+            key="network_rx_bytes",
+            name="Network RX Bytes",
+            native_unit_of_measurement=UnitOfInformation.BYTES,
+            device_class=SensorDeviceClass.DATA_SIZE,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+            suggested_display_precision=0,
+        ),
         value_fn=lambda d: d.get("network", {}).get("data", {}).get("total_rx_bytes"),
     ),
     HA4LinuxSensorDef(
         key="network_tx_bytes",
-        description=SensorEntityDescription(key="network_tx_bytes", name="Network TX Bytes"),
+        description=SensorEntityDescription(
+            key="network_tx_bytes",
+            name="Network TX Bytes",
+            native_unit_of_measurement=UnitOfInformation.BYTES,
+            device_class=SensorDeviceClass.DATA_SIZE,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+            suggested_display_precision=0,
+        ),
         value_fn=lambda d: d.get("network", {}).get("data", {}).get("total_tx_bytes"),
     ),
     HA4LinuxSensorDef(
