@@ -37,6 +37,12 @@ Sensores:
 - App Policies Total
 - App Policy Violations
 
+Compatibilidad con estadisticas de Home Assistant:
+
+- `CPU Load 1m`, `CPU Load 5m`, `Memory Used` y `Memory Used KB` usan `state_class=measurement`.
+- `Network RX Bytes` y `Network TX Bytes` usan `device_class=data_size`, unidad `B` y `state_class=total_increasing`.
+- Los valores de CPU se publican con precision de 2 decimales.
+
 Switch (si el actuador existe):
 
 - Active Graphical Session
