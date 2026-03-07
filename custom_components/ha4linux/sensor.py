@@ -95,6 +95,30 @@ SENSOR_DEFS: tuple[HA4LinuxSensorDef, ...] = (
         value_fn=lambda d: d.get("network", {}).get("data", {}).get("total_tx_bytes"),
     ),
     HA4LinuxSensorDef(
+        key="network_rx_kib_window",
+        description=SensorEntityDescription(
+            key="network_rx_kib_window",
+            name="Network RX Window",
+            native_unit_of_measurement=UnitOfInformation.KIBIBYTES,
+            device_class=SensorDeviceClass.DATA_SIZE,
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=2,
+        ),
+        value_fn=lambda d: d.get("network", {}).get("data", {}).get("rx_kib_window"),
+    ),
+    HA4LinuxSensorDef(
+        key="network_tx_kib_window",
+        description=SensorEntityDescription(
+            key="network_tx_kib_window",
+            name="Network TX Window",
+            native_unit_of_measurement=UnitOfInformation.KIBIBYTES,
+            device_class=SensorDeviceClass.DATA_SIZE,
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=2,
+        ),
+        value_fn=lambda d: d.get("network", {}).get("data", {}).get("tx_kib_window"),
+    ),
+    HA4LinuxSensorDef(
         key="app_policy_apps_total",
         description=SensorEntityDescription(key="app_policy_apps_total", name="App Policies Total"),
         value_fn=lambda d: d.get("app_policies", {}).get("data", {}).get("app_count"),
