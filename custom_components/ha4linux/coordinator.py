@@ -28,12 +28,14 @@ class HA4LinuxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             capabilities = await self.api.capabilities()
             version = await self.api.version()
             sensors = await self.api.sensors()
+            update_status = await self.api.update_status()
 
             data: dict[str, Any] = {
                 "capabilities": capabilities,
                 "version": version,
                 "compatibility": _evaluate_compatibility(version),
                 "sensors": sensors,
+                "update": update_status,
                 "session": None,
                 "app_policy": None,
             }

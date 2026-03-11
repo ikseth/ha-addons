@@ -1,5 +1,5 @@
 DOMAIN = "ha4linux"
-INTEGRATION_VERSION = "0.3.0"
+INTEGRATION_VERSION = "0.4.1"
 
 CONF_HOST = "host"
 CONF_PORT = "port"
@@ -13,4 +13,4 @@ DEFAULT_USE_HTTPS = True
 DEFAULT_VERIFY_SSL = False
 DEFAULT_SCAN_INTERVAL = 20
 
-PLATFORMS = ["sensor", "switch"]
+PLATFORMS = ["sensor", "switch", "update"]

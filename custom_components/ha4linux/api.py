@@ -14,6 +14,10 @@ class HA4LinuxAuthError(HA4LinuxApiError):
     pass
 
 
+class HA4LinuxNotSupportedError(HA4LinuxApiError):
+    pass
+
+
 class HA4LinuxApiClient:
     def __init__(
         self,
@@ -36,6 +40,7 @@ class HA4LinuxApiClient:
         path: str,
         payload: dict[str, Any] | None = None,
         auth: bool = True,
+        timeout_seconds: int = 10,
     ) -> dict[str, Any]:
         headers = {"Content-Type": "application/json"}
         if auth:
@@ -48,10 +53,12 @@ class HA4LinuxApiClient:
                 headers=headers,
                 json=payload,
                 ssl=self._ssl,
-                timeout=aiohttp.ClientTimeout(total=10),
+                timeout=aiohttp.ClientTimeout(total=timeout_seconds),
             ) as resp:
                 if resp.status == 401:
                     raise HA4LinuxAuthError("Unauthorized")
+                if resp.status == 404:
+                    raise HA4LinuxNotSupportedError(f"Endpoint not available: {path}")
                 if resp.status >= 400:
                     text = await resp.text()
                     raise HA4LinuxApiError(f"HTTP {resp.status}: {text}")
@@ -85,6 +92,60 @@ class HA4LinuxApiClient:
                 "available": False,
                 "error": str(exc),
             }
+
+    async def update_status(self) -> dict[str, Any]:
+        try:
+            result = await self._request("GET", "/v1/update/status")
+            result.setdefault("supported", True)
+            result.setdefault("enabled", False)
+            result.setdefault("update_available", False)
+            result.setdefault("state", "idle")
+            return result
+        except HA4LinuxNotSupportedError as exc:
+            return {
+                "ok": False,
+                "supported": False,
+                "enabled": False,
+                "update_available": False,
+                "state": "unsupported",
+                "error": str(exc),
+            }
+        except HA4LinuxApiError as exc:
+            return {
+                "ok": False,
+                "supported": True,
+                "enabled": False,
+                "update_available": False,
+                "state": "error",
+                "error": str(exc),
+            }
+
+    async def update_check(self) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            "/v1/update/check",
+            payload={},
+            timeout_seconds=30,
+        )
+
+    async def update_apply(self, target_version: str | None = None) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if target_version:
+            payload["target_version"] = target_version
+        return await self._request(
+            "POST",
+            "/v1/update/apply",
+            payload=payload,
+            timeout_seconds=300,
+        )
+
+    async def update_rollback(self) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            "/v1/update/rollback",
+            payload={},
+            timeout_seconds=300,
+        )
 
     async def sensors(self) -> dict[str, Any]:
         return await self._request("GET", "/v1/sensors")

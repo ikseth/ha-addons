@@ -4,13 +4,15 @@ Add-on modular para Home Assistant orientado a monitorizacion y control operativ
 
 ## Estado actual
 
-Version funcional `0.3.0` con:
+Version funcional `0.4.1` con:
 
 - Sensores base: `cpu_load`, `memory`, `network`.
 - Sensores de infraestructura: `raid_mdstat`, `virtualbox`, `services`.
+- Sensor de almacenamiento local: `filesystem` (sin FS de red por defecto).
 - Sensor modular de politicas de apps: `app_policies`.
 - Actuador de sesion grafica: `session_manager` (`status`, `activate`, `terminate`).
 - Actuador modular de politicas de apps: `app_policy` (`status`, `allow`, `block`, `enforce`, `reload`).
+- Gestion remota de actualizaciones (opcional y desactivada por defecto): `/v1/update/*`.
 - Seguridad de transporte: TLS configurable (`tls_enabled`, `tls_certfile`, `tls_keyfile`).
 - Seguridad de API: token Bearer (`api_token`).
 - Modo de solo lectura para entornos criticos (`readonly_mode`).
@@ -65,6 +67,10 @@ Semantica:
 - `GET /v1/version`
 - `GET /v1/capabilities`
 - `GET /v1/sensors`
+- `GET /v1/update/status`
+- `POST /v1/update/check`
+- `POST /v1/update/apply`
+- `POST /v1/update/rollback`
 - `POST /v1/actuators/session_manager/status`
 - `POST /v1/actuators/session_manager/activate`
 - `POST /v1/actuators/session_manager/terminate`
@@ -81,6 +87,28 @@ Semantica:
 - `min_integration_version`
 - `max_integration_version`
 - `build` (`commit`, `date`, `channel`)
+
+`/v1/update/*` permite comprobacion/aplicacion de updates desde HA bajo estas condiciones:
+
+- `HA4LINUX_REMOTE_UPDATE_ENABLED=true`
+- `HA4LINUX_REMOTE_UPDATE_MANIFEST_URL` configurada
+- `HA4LINUX_REMOTE_UPDATE_APPLY_COMMAND` (para instalar) y opcionalmente `...ROLLBACK_COMMAND`
+
+Por seguridad:
+
+- Esta funcionalidad esta desactivada por defecto.
+- Si `readonly_mode=true`, update/rollback quedan bloqueados salvo que `HA4LINUX_REMOTE_UPDATE_ALLOW_IN_READONLY=true`.
+
+`filesystem` expone por mountpoint:
+
+- `used_percent`
+- `used_gib`
+- `free_gib`
+
+Con filtros configurables:
+
+- `HA4LINUX_FILESYSTEM_EXCLUDE_TYPES`
+- `HA4LINUX_FILESYSTEM_EXCLUDE_MOUNTS`
 
 ## Requisitos para acciones privilegiadas
 
