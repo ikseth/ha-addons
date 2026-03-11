@@ -7,11 +7,13 @@ Add-on modular para Home Assistant orientado a monitorizacion y control operativ
 Version funcional `0.3.0` con:
 
 - Sensores base: `cpu_load`, `memory`, `network`.
+- Sensores de infraestructura: `raid_mdstat`, `virtualbox`, `services`.
 - Sensor modular de politicas de apps: `app_policies`.
 - Actuador de sesion grafica: `session_manager` (`status`, `activate`, `terminate`).
 - Actuador modular de politicas de apps: `app_policy` (`status`, `allow`, `block`, `enforce`, `reload`).
 - Seguridad de transporte: TLS configurable (`tls_enabled`, `tls_certfile`, `tls_keyfile`).
 - Seguridad de API: token Bearer (`api_token`).
+- Modo de solo lectura para entornos criticos (`readonly_mode`).
 
 ## Entidades objetivo en Home Assistant
 
@@ -19,9 +21,10 @@ Version funcional `0.3.0` con:
 - Sensores = entidades de telemetria.
 - Actuadores = entidades tipo switch/button para acciones controladas.
 
-## Control de apps (Kodi y otras)
+## Control de apps (declarativo)
 
 El control es generico por politica declarativa (JSON), no hardcodeado a una app concreta.
+Por defecto, el instalador crea `apps.json` vacio y solo se exponen controles para apps que declares explicitamente.
 
 Ruta por defecto en add-on:
 
@@ -31,7 +34,7 @@ Ruta por defecto en instalador Linux:
 
 - `/etc/ha4linux/policies/apps.json`
 
-Ejemplo de politica:
+Ejemplo de politica (opcional):
 
 ```json
 {

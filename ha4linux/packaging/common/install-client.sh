@@ -120,6 +120,12 @@ install_files() {
     fi
   }
   append_if_missing HA4LINUX_SENSORS_APP_POLICIES true
+  append_if_missing HA4LINUX_SENSORS_RAID true
+  append_if_missing HA4LINUX_SENSORS_VIRTUALBOX false
+  append_if_missing HA4LINUX_SENSORS_SERVICES false
+  append_if_missing HA4LINUX_READONLY_MODE false
+  append_if_missing HA4LINUX_VIRTUALBOX_USER ""
+  append_if_missing HA4LINUX_SERVICES_WATCHLIST "apache2.service,mariadb.service,smbd.service,docker.service"
   append_if_missing HA4LINUX_ACTUATOR_APP_POLICY true
   append_if_missing HA4LINUX_APP_POLICY_FILE "${POLICY_FILE}"
   append_if_missing HA4LINUX_APP_POLICY_USE_SUDO_KILL true
@@ -139,21 +145,12 @@ install_files() {
   if [[ ! -f "${POLICY_FILE}" ]]; then
     cat > "${POLICY_FILE}" << 'EOF_POLICY'
 {
-  "apps": [
-    {
-      "id": "kodi",
-      "process_names": ["kodi.bin", "kodi"],
-      "service_names": [],
-      "allowed": true,
-      "action_on_block": "terminate",
-      "monitor_only": false
-    }
-  ]
+  "apps": []
 }
 EOF_POLICY
     chmod 640 "${POLICY_FILE}"
     chown root:ha4linux "${POLICY_FILE}"
-    log "Created default app policy file in ${POLICY_FILE}"
+    log "Created empty app policy file in ${POLICY_FILE}"
   else
     chown root:ha4linux "${POLICY_FILE}"
     chmod 660 "${POLICY_FILE}"

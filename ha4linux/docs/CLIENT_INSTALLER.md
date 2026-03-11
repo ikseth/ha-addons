@@ -27,6 +27,7 @@ Esto realiza:
 - Config en `/etc/ha4linux/ha4linux.env`
 - TLS autofirmado en `/etc/ha4linux/certs`
 - Politicas de apps en `/etc/ha4linux/policies/apps.json`
+  - Se crea vacio por defecto (`{\"apps\": []}`); anade solo las apps que quieras controlar.
 - Servicio `systemd` `ha4linux.service`
 - Politica `sudoers` limitada para `loginctl`
 
@@ -37,6 +38,18 @@ Editar configuracion:
 ```bash
 sudo nano /etc/ha4linux/ha4linux.env
 ```
+
+Variables nuevas de monitorizacion avanzada:
+
+- `HA4LINUX_SENSORS_RAID=true|false`
+- `HA4LINUX_SENSORS_VIRTUALBOX=true|false`
+- `HA4LINUX_VIRTUALBOX_USER=<usuario_con_vms>`
+- `HA4LINUX_SENSORS_SERVICES=true|false`
+- `HA4LINUX_SERVICES_WATCHLIST=apache2.service,mariadb.service,smbd.service,docker.service`
+- `HA4LINUX_READONLY_MODE=true|false` (desactiva actuadores en entornos criticos)
+
+Para `HA4LINUX_SENSORS_VIRTUALBOX=true` con `HA4LINUX_VIRTUALBOX_USER` distinto de `ha4linux`,
+el instalador deja configurada una regla `sudoers` de solo lectura para `VBoxManage list`.
 
 Reiniciar servicio:
 
