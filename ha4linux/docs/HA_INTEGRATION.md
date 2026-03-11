@@ -36,14 +36,29 @@ Sensores:
 - Network TX Bytes
 - Network RX Window (KiB)
 - Network TX Window (KiB)
+- RAID Arrays Total
+- RAID Arrays Degraded
+- RAID Arrays Rebuilding
+- VirtualBox VMs Total
+- VirtualBox VMs Running
+- Services Total
+- Services Active
+- Services Failed
 - App Policies Total
 - App Policy Violations
+
+Sensores dinamicos por recurso (si el modulo esta disponible):
+
+- RAID `<mdX>` (estado y atributos de discos).
+- Service `<unit.service>` (estado `systemd`).
+- VM `<name>` (estado VirtualBox).
 
 Compatibilidad con estadisticas de Home Assistant:
 
 - `CPU Load 1m`, `CPU Load 5m`, `Memory Used` y `Memory Used KB` usan `state_class=measurement`.
 - `Network RX Bytes` y `Network TX Bytes` usan `device_class=data_size`, unidad `B` y `state_class=total_increasing`.
 - `Network RX Window` y `Network TX Window` usan `device_class=data_size`, unidad `KiB` y `state_class=measurement`.
+- Los contadores resumen de RAID/VirtualBox/Services usan `state_class=measurement`.
 - Los valores de CPU se publican con precision de 2 decimales.
 - Los sensores `Network * Window` representan el delta agregado de trafico en la ventana entre lecturas (normalmente `scan_interval`).
 

@@ -1,4 +1,6 @@
 Cmnd_Alias HA4LINUX_SESSION = /usr/bin/loginctl activate *, /usr/bin/loginctl terminate-session *
 Cmnd_Alias HA4LINUX_APPS = /usr/bin/systemctl stop *, /bin/kill -15 *, /bin/kill -9 *, /usr/bin/kill -15 *, /usr/bin/kill -9 *
+Cmnd_Alias HA4LINUX_VBOX = /usr/bin/VBoxManage list vms, /usr/bin/VBoxManage list runningvms, /usr/bin/vboxmanage list vms, /usr/bin/vboxmanage list runningvms
 ha4linux ALL=(root) NOPASSWD: HA4LINUX_SESSION, HA4LINUX_APPS
+ha4linux ALL=(ALL) NOPASSWD: HA4LINUX_VBOX
 Defaults:ha4linux !requiretty

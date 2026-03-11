@@ -31,6 +31,9 @@
 - `cpu_load`: carga media y numero de CPUs.
 - `memory`: memoria total/disponible/usada.
 - `network`: trafico RX/TX total e interfaces.
+- `raid_mdstat`: estado de arrays Linux MD (`/proc/mdstat`).
+- `virtualbox`: estado de VMs de VirtualBox para un usuario configurado.
+- `services`: estado de servicios `systemd` de una watchlist configurable.
 - `app_policies`: estado de politicas por aplicacion (running/violating/allowed).
 
 ### Actuadores
@@ -59,5 +62,6 @@ Fuente declarativa en fichero JSON (`HA4LINUX_APP_POLICY_FILE`), con estructura:
 ## Principios
 
 - Modulos habilitables/deshabilitables por configuracion.
+- Exposicion condicional: solo se registran modulos con prerequisitos disponibles.
 - Fallos aislados: un modulo fallando no derriba el core.
 - Superficie de accion minima por defecto.

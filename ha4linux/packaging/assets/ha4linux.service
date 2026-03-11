@@ -13,9 +13,12 @@ ExecStart=/opt/ha4linux/.venv/bin/python -m app.main
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=false
-PrivateTmp=true
+# VirtualBox reports running VMs through IPC sockets under /tmp.
+# PrivateTmp isolates those sockets and makes "list runningvms" return empty.
+PrivateTmp=false
 ProtectSystem=full
-ProtectHome=true
+# VBoxManage requires RW access to the configured user's ~/.config/VirtualBox.
+ProtectHome=false
 ReadWritePaths=/var/lib/ha4linux /var/log/ha4linux /etc/ha4linux
 
 [Install]
