@@ -28,6 +28,9 @@ cp -r custom_components/ha4linux /config/custom_components/
 
 Sensores:
 
+- API Version
+- API Schema Version
+- API Compatibility
 - CPU Load 1m
 - CPU Load 5m
 - Memory Used (%)
@@ -61,6 +64,7 @@ Compatibilidad con estadisticas de Home Assistant:
 - Los contadores resumen de RAID/VirtualBox/Services usan `state_class=measurement`.
 - Los valores de CPU se publican con precision de 2 decimales.
 - Los sensores `Network * Window` representan el delta agregado de trafico en la ventana entre lecturas (normalmente `scan_interval`).
+- Los sensores de metadata (`API Version`, `API Schema Version`, `API Compatibility`) son informativos y no se usan para estadisticas.
 
 Switch (si el actuador existe):
 

@@ -28,6 +28,43 @@ class HA4LinuxSensorDef:
     value_fn: Callable[[dict[str, Any]], float | int | str | None]
 
 
+@dataclass(frozen=True)
+class HA4LinuxMetaSensorDef:
+    key: str
+    description: SensorEntityDescription
+    value_fn: Callable[[dict[str, Any] | None], float | int | str | None]
+    attributes_fn: Callable[[dict[str, Any] | None], dict[str, Any] | None] | None = None
+
+
+META_SENSOR_DEFS: tuple[HA4LinuxMetaSensorDef, ...] = (
+    HA4LinuxMetaSensorDef(
+        key="api_version",
+        description=SensorEntityDescription(
+            key="api_version",
+            name="API Version",
+        ),
+        value_fn=lambda d: _version_payload(d).get("api_version"),
+    ),
+    HA4LinuxMetaSensorDef(
+        key="api_schema_version",
+        description=SensorEntityDescription(
+            key="api_schema_version",
+            name="API Schema Version",
+        ),
+        value_fn=lambda d: _version_payload(d).get("schema_version"),
+    ),
+    HA4LinuxMetaSensorDef(
+        key="api_compatibility",
+        description=SensorEntityDescription(
+            key="api_compatibility",
+            name="API Compatibility",
+        ),
+        value_fn=lambda d: _compatibility_payload(d).get("status"),
+        attributes_fn=lambda d: _compatibility_payload(d),
+    ),
+)
+
+
 SENSOR_DEFS: tuple[HA4LinuxSensorDef, ...] = (
     HA4LinuxSensorDef(
         key="cpu_load_1",
@@ -239,8 +276,13 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: HA4LinuxCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    meta_entities: list[SensorEntity] = [
+        HA4LinuxMetaSensor(coordinator, entry, definition)
+        for definition in META_SENSOR_DEFS
+    ]
+
     available_modules = _available_modules(coordinator.data)
-    static_entities: list[SensorEntity] = [
+    static_entities: list[SensorEntity] = meta_entities + [
         HA4LinuxSensor(coordinator, entry, definition)
         for definition in SENSOR_DEFS
         if definition.module_id in available_modules
@@ -327,6 +369,20 @@ def _sensor_payload(data: dict[str, Any] | None, sensor_id: str) -> dict[str, An
     return payload if isinstance(payload, dict) else {}
 
 
+def _version_payload(data: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        return {}
+    payload = data.get("version", {})
+    return payload if isinstance(payload, dict) else {}
+
+
+def _compatibility_payload(data: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        return {}
+    payload = data.get("compatibility", {})
+    return payload if isinstance(payload, dict) else {}
+
+
 def _raid_items(data: dict[str, Any] | None) -> list[dict[str, Any]]:
     payload = _sensor_payload(data, "raid_mdstat")
     arrays = payload.get("arrays", [])
@@ -364,6 +420,32 @@ class _HA4LinuxBaseSensor(CoordinatorEntity[HA4LinuxCoordinator], SensorEntity):
             manufacturer="HA4Linux",
             model="Linux Host API",
         )
+
+
+class HA4LinuxMetaSensor(_HA4LinuxBaseSensor):
+    entity_description: SensorEntityDescription
+
+    def __init__(
+        self,
+        coordinator: HA4LinuxCoordinator,
+        entry: ConfigEntry,
+        definition: HA4LinuxMetaSensorDef,
+    ) -> None:
+        super().__init__(coordinator, entry)
+        self._def = definition
+        self.entity_description = definition.description
+        self._attr_unique_id = f"{entry.entry_id}_{definition.key}"
+        self._attr_has_entity_name = True
+
+    @property
+    def native_value(self):
+        return self._def.value_fn(self.coordinator.data)
+
+    @property
+    def extra_state_attributes(self):
+        if self._def.attributes_fn is None:
+            return None
+        return self._def.attributes_fn(self.coordinator.data)
 
 
 class HA4LinuxSensor(_HA4LinuxBaseSensor):

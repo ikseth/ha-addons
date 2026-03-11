@@ -62,6 +62,7 @@ Semantica:
 ## API basica
 
 - `GET /health`
+- `GET /v1/version`
 - `GET /v1/capabilities`
 - `GET /v1/sensors`
 - `POST /v1/actuators/session_manager/status`
@@ -72,6 +73,14 @@ Semantica:
 - `POST /v1/actuators/app_policy/block`
 - `POST /v1/actuators/app_policy/enforce`
 - `POST /v1/actuators/app_policy/reload`
+
+`GET /v1/version` expone metadatos de version y rango de compatibilidad de la integracion HA:
+
+- `api_version`
+- `schema_version`
+- `min_integration_version`
+- `max_integration_version`
+- `build` (`commit`, `date`, `channel`)
 
 ## Requisitos para acciones privilegiadas
 

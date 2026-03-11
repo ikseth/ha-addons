@@ -2,7 +2,7 @@
 
 ## Bloques
 
-- Core API: autenticacion, TLS, registro de modulos y endpoints estables `v1`.
+- Core API: autenticacion, TLS, registro de modulos y endpoints estables `v1` (incluyendo metadata de version/compatibilidad).
 - Sensores: recolectan telemetria y reportan `available/unavailable`.
 - Actuadores: ejecutan acciones permitidas sobre el sistema operativo.
 

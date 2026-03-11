@@ -71,6 +71,21 @@ class HA4LinuxApiClient:
     async def capabilities(self) -> dict[str, Any]:
         return await self._request("GET", "/v1/capabilities")
 
+    async def version(self) -> dict[str, Any]:
+        try:
+            return await self._request("GET", "/v1/version")
+        except HA4LinuxApiError as exc:
+            # Keep backward compatibility with older APIs that do not expose
+            # /v1/version yet.
+            return {
+                "api_version": "unknown",
+                "schema_version": "unknown",
+                "min_integration_version": "0.0.0",
+                "max_integration_version": "999.999.999",
+                "available": False,
+                "error": str(exc),
+            }
+
     async def sensors(self) -> dict[str, Any]:
         return await self._request("GET", "/v1/sensors")
 
