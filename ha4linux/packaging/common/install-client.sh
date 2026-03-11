@@ -123,12 +123,24 @@ install_files() {
   append_if_missing HA4LINUX_SENSORS_RAID true
   append_if_missing HA4LINUX_SENSORS_VIRTUALBOX false
   append_if_missing HA4LINUX_SENSORS_SERVICES false
+  append_if_missing HA4LINUX_SENSORS_FILESYSTEM true
   append_if_missing HA4LINUX_READONLY_MODE false
   append_if_missing HA4LINUX_VIRTUALBOX_USER ""
   append_if_missing HA4LINUX_SERVICES_WATCHLIST "apache2.service,mariadb.service,smbd.service,docker.service"
+  append_if_missing HA4LINUX_FILESYSTEM_EXCLUDE_TYPES "tmpfs,ramfs,devtmpfs,proc,sysfs,cgroup,cgroup2,pstore,debugfs,tracefs,securityfs,configfs,fusectl,mqueue,hugetlbfs,autofs,bpf,binfmt_misc,squashfs,overlay,nfs,nfs4,cifs,smbfs,sshfs,fuse.sshfs,glusterfs,ceph,9p"
+  append_if_missing HA4LINUX_FILESYSTEM_EXCLUDE_MOUNTS "/proc,/sys,/dev,/run,/var/lib/docker,/var/lib/containers"
   append_if_missing HA4LINUX_ACTUATOR_APP_POLICY true
   append_if_missing HA4LINUX_APP_POLICY_FILE "${POLICY_FILE}"
   append_if_missing HA4LINUX_APP_POLICY_USE_SUDO_KILL true
+  append_if_missing HA4LINUX_REMOTE_UPDATE_ENABLED false
+  append_if_missing HA4LINUX_REMOTE_UPDATE_MANIFEST_URL ""
+  append_if_missing HA4LINUX_REMOTE_UPDATE_CHANNEL stable
+  append_if_missing HA4LINUX_REMOTE_UPDATE_CHECK_INTERVAL_SEC 1800
+  append_if_missing HA4LINUX_REMOTE_UPDATE_CHECK_TIMEOUT_SEC 10
+  append_if_missing HA4LINUX_REMOTE_UPDATE_COMMAND_TIMEOUT_SEC 300
+  append_if_missing HA4LINUX_REMOTE_UPDATE_APPLY_COMMAND ""
+  append_if_missing HA4LINUX_REMOTE_UPDATE_ROLLBACK_COMMAND ""
+  append_if_missing HA4LINUX_REMOTE_UPDATE_ALLOW_IN_READONLY false
 
   if [[ ! -f "${CERT_DIR}/server.crt" || ! -f "${CERT_DIR}/server.key" ]]; then
     HOST_CN="$(hostname -f 2>/dev/null || hostname)"

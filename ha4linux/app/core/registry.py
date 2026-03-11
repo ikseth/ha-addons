@@ -10,6 +10,7 @@ from app.core.config import Settings
 from app.sensors.app_policies import AppPoliciesSensor
 from app.sensors.base import Sensor
 from app.sensors.cpu_load import CpuLoadSensor
+from app.sensors.filesystem import FilesystemSensor
 from app.sensors.memory import MemorySensor
 from app.sensors.network import NetworkSensor
 from app.sensors.raid_mdstat import RaidMdstatSensor
@@ -51,6 +52,12 @@ class ModuleRegistry:
             services_sensor = self._build_services_sensor()
             if services_sensor is not None:
                 self.sensors[ServicesSensor.id] = services_sensor
+
+        if self.settings.sensors_filesystem:
+            self.sensors[FilesystemSensor.id] = FilesystemSensor(
+                exclude_types=self.settings.filesystem_exclude_types,
+                exclude_mounts=self.settings.filesystem_exclude_mounts,
+            )
 
         app_policy_actuator_enabled = (
             self.settings.actuator_app_policy and not self.settings.readonly_mode

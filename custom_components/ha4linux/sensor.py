@@ -62,6 +62,15 @@ META_SENSOR_DEFS: tuple[HA4LinuxMetaSensorDef, ...] = (
         value_fn=lambda d: _compatibility_payload(d).get("status"),
         attributes_fn=lambda d: _compatibility_payload(d),
     ),
+    HA4LinuxMetaSensorDef(
+        key="api_update_state",
+        description=SensorEntityDescription(
+            key="api_update_state",
+            name="API Update State",
+        ),
+        value_fn=lambda d: _update_payload(d).get("state"),
+        attributes_fn=lambda d: _update_payload(d),
+    ),
 )
 
 
@@ -253,6 +262,39 @@ SENSOR_DEFS: tuple[HA4LinuxSensorDef, ...] = (
         value_fn=lambda d: d.get("services", {}).get("data", {}).get("services_failed"),
     ),
     HA4LinuxSensorDef(
+        key="filesystems_total",
+        module_id="filesystem",
+        description=SensorEntityDescription(
+            key="filesystems_total",
+            name="Filesystems Total",
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=0,
+        ),
+        value_fn=lambda d: d.get("filesystem", {}).get("data", {}).get("filesystems_total"),
+    ),
+    HA4LinuxSensorDef(
+        key="filesystems_readonly",
+        module_id="filesystem",
+        description=SensorEntityDescription(
+            key="filesystems_readonly",
+            name="Filesystems Readonly",
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=0,
+        ),
+        value_fn=lambda d: d.get("filesystem", {}).get("data", {}).get("filesystems_readonly"),
+    ),
+    HA4LinuxSensorDef(
+        key="filesystems_over_90",
+        module_id="filesystem",
+        description=SensorEntityDescription(
+            key="filesystems_over_90",
+            name="Filesystems Over 90%",
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=0,
+        ),
+        value_fn=lambda d: d.get("filesystem", {}).get("data", {}).get("filesystems_over_90"),
+    ),
+    HA4LinuxSensorDef(
         key="app_policy_apps_total",
         module_id="app_policies",
         description=SensorEntityDescription(key="app_policy_apps_total", name="App Policies Total"),
@@ -293,6 +335,7 @@ async def async_setup_entry(
     known_raid_arrays: set[str] = set()
     known_services: set[str] = set()
     known_vms: set[str] = set()
+    known_filesystem_metrics: set[str] = set()
 
     def _new_dynamic_entities() -> list[SensorEntity]:
         modules = _available_modules(coordinator.data)
@@ -322,6 +365,25 @@ async def async_setup_entry(
                     continue
                 known_vms.add(vm_uuid)
                 new_entities.append(HA4LinuxVmSensor(coordinator, entry, vm_uuid, vm_name or vm_uuid))
+
+        if "filesystem" in modules:
+            for item in _filesystem_items(coordinator.data):
+                mountpoint = str(item.get("mountpoint", "")).strip()
+                if not mountpoint:
+                    continue
+                for metric_key in ("used_percent", "used_gib", "free_gib"):
+                    unique_metric_key = f"{mountpoint}|{metric_key}"
+                    if unique_metric_key in known_filesystem_metrics:
+                        continue
+                    known_filesystem_metrics.add(unique_metric_key)
+                    new_entities.append(
+                        HA4LinuxFilesystemSensor(
+                            coordinator,
+                            entry,
+                            mountpoint=mountpoint,
+                            metric_key=metric_key,
+                        )
+                    )
 
         return new_entities
 
@@ -383,6 +445,13 @@ def _compatibility_payload(data: dict[str, Any] | None) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _update_payload(data: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        return {}
+    payload = data.get("update", {})
+    return payload if isinstance(payload, dict) else {}
+
+
 def _raid_items(data: dict[str, Any] | None) -> list[dict[str, Any]]:
     payload = _sensor_payload(data, "raid_mdstat")
     arrays = payload.get("arrays", [])
@@ -399,6 +468,12 @@ def _virtualbox_items(data: dict[str, Any] | None) -> list[dict[str, Any]]:
     payload = _sensor_payload(data, "virtualbox")
     vms = payload.get("vms", [])
     return vms if isinstance(vms, list) else []
+
+
+def _filesystem_items(data: dict[str, Any] | None) -> list[dict[str, Any]]:
+    payload = _sensor_payload(data, "filesystem")
+    filesystems = payload.get("filesystems", [])
+    return filesystems if isinstance(filesystems, list) else []
 
 
 def _slug(value: str) -> str:
@@ -532,6 +607,69 @@ class HA4LinuxServiceSensor(_HA4LinuxBaseSensor):
             "sub_state": item.get("sub_state"),
             "is_active": item.get("is_active"),
             "is_failed": item.get("is_failed"),
+        }
+
+
+class HA4LinuxFilesystemSensor(_HA4LinuxBaseSensor):
+    _PERCENT_METRIC = "used_percent"
+    _USED_GIB_METRIC = "used_gib"
+    _FREE_GIB_METRIC = "free_gib"
+
+    def __init__(
+        self,
+        coordinator: HA4LinuxCoordinator,
+        entry: ConfigEntry,
+        *,
+        mountpoint: str,
+        metric_key: str,
+    ) -> None:
+        super().__init__(coordinator, entry)
+        self._mountpoint = mountpoint
+        self._metric_key = metric_key
+        metric_names = {
+            self._PERCENT_METRIC: "Used %",
+            self._USED_GIB_METRIC: "Used GiB",
+            self._FREE_GIB_METRIC: "Free GiB",
+        }
+        metric_suffix = metric_names.get(metric_key, metric_key.replace("_", " "))
+        self._attr_unique_id = f"{entry.entry_id}_filesystem_{_slug(mountpoint)}_{metric_key}"
+        self._attr_name = f"FS {mountpoint} {metric_suffix}"
+        self._attr_has_entity_name = True
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_suggested_display_precision = 2
+
+        if self._metric_key == self._PERCENT_METRIC:
+            self._attr_native_unit_of_measurement = PERCENTAGE
+            self._attr_device_class = None
+        else:
+            self._attr_native_unit_of_measurement = UnitOfInformation.GIBIBYTES
+            self._attr_device_class = SensorDeviceClass.DATA_SIZE
+
+    def _item(self) -> dict[str, Any] | None:
+        for item in _filesystem_items(self.coordinator.data):
+            if str(item.get("mountpoint", "")).strip() == self._mountpoint:
+                return item
+        return None
+
+    @property
+    def native_value(self):
+        item = self._item()
+        if not isinstance(item, dict):
+            return None
+        return item.get(self._metric_key)
+
+    @property
+    def extra_state_attributes(self):
+        item = self._item()
+        if not isinstance(item, dict):
+            return None
+        return {
+            "mountpoint": item.get("mountpoint"),
+            "device": item.get("device"),
+            "fs_type": item.get("fs_type"),
+            "readonly": item.get("readonly"),
+            "total_gib": item.get("total_gib"),
+            "used_percent": item.get("used_percent"),
         }
 
 

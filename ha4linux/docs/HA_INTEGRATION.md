@@ -31,6 +31,7 @@ Sensores:
 - API Version
 - API Schema Version
 - API Compatibility
+- API Update State
 - CPU Load 1m
 - CPU Load 5m
 - Memory Used (%)
@@ -47,24 +48,36 @@ Sensores:
 - Services Total
 - Services Active
 - Services Failed
+- Filesystems Total
+- Filesystems Readonly
+- Filesystems Over 90%
 - App Policies Total
 - App Policy Violations
+
+Entidad `update` (si el host expone `/v1/update/status` y `enabled=true`):
+
+- `HA4Linux API` (instalar update desde HA)
 
 Sensores dinamicos por recurso (si el modulo esta disponible):
 
 - RAID `<mdX>` (estado y atributos de discos).
 - Service `<unit.service>` (estado `systemd`).
 - VM `<name>` (estado VirtualBox).
+- FS `<mountpoint>` Used %
+- FS `<mountpoint>` Used GiB
+- FS `<mountpoint>` Free GiB
 
 Compatibilidad con estadisticas de Home Assistant:
 
 - `CPU Load 1m`, `CPU Load 5m`, `Memory Used` y `Memory Used KB` usan `state_class=measurement`.
 - `Network RX Bytes` y `Network TX Bytes` usan `device_class=data_size`, unidad `B` y `state_class=total_increasing`.
 - `Network RX Window` y `Network TX Window` usan `device_class=data_size`, unidad `KiB` y `state_class=measurement`.
-- Los contadores resumen de RAID/VirtualBox/Services usan `state_class=measurement`.
+- Los contadores resumen de RAID/VirtualBox/Services/Filesystem usan `state_class=measurement`.
+- `FS <mountpoint> Used %` usa `state_class=measurement`.
+- `FS <mountpoint> Used GiB` y `FS <mountpoint> Free GiB` usan `device_class=data_size`, unidad `GiB` y `state_class=measurement`.
 - Los valores de CPU se publican con precision de 2 decimales.
 - Los sensores `Network * Window` representan el delta agregado de trafico en la ventana entre lecturas (normalmente `scan_interval`).
-- Los sensores de metadata (`API Version`, `API Schema Version`, `API Compatibility`) son informativos y no se usan para estadisticas.
+- Los sensores de metadata (`API Version`, `API Schema Version`, `API Compatibility`, `API Update State`) son informativos y no se usan para estadisticas.
 
 Switch (si el actuador existe):
 
@@ -89,3 +102,8 @@ Desde la entrada de integracion:
 - `Use HTTPS`
 - `Verify SSL`
 - `Scan interval` (segundos)
+
+Notas de update remoto:
+
+- La comprobacion de disponibilidad de nuevas versiones la gobierna el host API (`HA4LINUX_REMOTE_UPDATE_CHECK_INTERVAL_SEC`).
+- La accion de instalar desde la entidad `update` ejecuta `POST /v1/update/check` y `POST /v1/update/apply`.

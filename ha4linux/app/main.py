@@ -6,15 +6,30 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 
 from app.core.config import Settings
 from app.core.registry import ModuleRegistry
+from app.core.update_manager import UpdateManager
 
 settings = Settings()
 registry = ModuleRegistry(settings=settings)
 registry.load()
 
-API_VERSION = "0.3.0"
+API_VERSION = "0.4.1"
 API_SCHEMA_VERSION = "1.0"
 API_MIN_INTEGRATION_VERSION = "0.3.0"
-API_MAX_INTEGRATION_VERSION = "0.5.x"
+API_MAX_INTEGRATION_VERSION = "0.6.x"
+
+update_manager = UpdateManager(
+    api_version=API_VERSION,
+    enabled=settings.remote_update_enabled,
+    readonly_mode=settings.readonly_mode,
+    allow_in_readonly=settings.remote_update_allow_in_readonly,
+    manifest_url=settings.remote_update_manifest_url,
+    channel=settings.remote_update_channel,
+    check_interval_sec=settings.remote_update_check_interval_sec,
+    check_timeout_sec=settings.remote_update_check_timeout_sec,
+    command_timeout_sec=settings.remote_update_command_timeout_sec,
+    apply_command=settings.remote_update_apply_command,
+    rollback_command=settings.remote_update_rollback_command,
+)
 
 app = FastAPI(title="HA4Linux", version=API_VERSION)
 
@@ -36,6 +51,14 @@ def capabilities(_: None = Depends(require_auth)) -> dict[str, Any]:
         "transport": "https" if settings.tls_enabled else "http",
         "sensors": sorted(registry.sensors.keys()),
         "actuators": sorted(registry.actuators.keys()),
+        "management": {
+            "remote_update": {
+                "enabled": settings.remote_update_enabled,
+                "readonly_mode": settings.readonly_mode,
+                "allow_in_readonly": settings.remote_update_allow_in_readonly,
+                "channel": settings.remote_update_channel,
+            }
+        },
     }
 
 
@@ -57,6 +80,31 @@ def version(_: None = Depends(require_auth)) -> dict[str, Any]:
 @app.get("/v1/sensors")
 def sensors(_: None = Depends(require_auth)) -> dict[str, Any]:
     return registry.collect_sensors()
+
+
+@app.get("/v1/update/status")
+def update_status(_: None = Depends(require_auth)) -> dict[str, Any]:
+    return update_manager.status()
+
+
+@app.post("/v1/update/check")
+def update_check(_: None = Depends(require_auth)) -> dict[str, Any]:
+    return update_manager.check()
+
+
+@app.post("/v1/update/apply")
+def update_apply(
+    payload: dict[str, Any] | None = None,
+    _: None = Depends(require_auth),
+) -> dict[str, Any]:
+    requested = payload or {}
+    target_version = requested.get("target_version")
+    return update_manager.apply(target_version=str(target_version).strip() if target_version else None)
+
+
+@app.post("/v1/update/rollback")
+def update_rollback(_: None = Depends(require_auth)) -> dict[str, Any]:
+    return update_manager.rollback()
 
 
 @app.post("/v1/actuators/{actuator_id}/{action}")

@@ -46,7 +46,44 @@ Variables nuevas de monitorizacion avanzada:
 - `HA4LINUX_VIRTUALBOX_USER=<usuario_con_vms>`
 - `HA4LINUX_SENSORS_SERVICES=true|false`
 - `HA4LINUX_SERVICES_WATCHLIST=apache2.service,mariadb.service,smbd.service,docker.service`
+- `HA4LINUX_SENSORS_FILESYSTEM=true|false`
+- `HA4LINUX_FILESYSTEM_EXCLUDE_TYPES=tmpfs,ramfs,...,nfs,nfs4,cifs,...`
+- `HA4LINUX_FILESYSTEM_EXCLUDE_MOUNTS=/proc,/sys,/dev,/run,/var/lib/docker,/var/lib/containers`
 - `HA4LINUX_READONLY_MODE=true|false` (desactiva actuadores en entornos criticos)
+
+Variables de update remoto (opcional, desactivado por defecto):
+
+- `HA4LINUX_REMOTE_UPDATE_ENABLED=true|false`
+- `HA4LINUX_REMOTE_UPDATE_MANIFEST_URL=https://.../manifest.json`
+- `HA4LINUX_REMOTE_UPDATE_CHANNEL=stable`
+- `HA4LINUX_REMOTE_UPDATE_CHECK_INTERVAL_SEC=1800`
+- `HA4LINUX_REMOTE_UPDATE_CHECK_TIMEOUT_SEC=10`
+- `HA4LINUX_REMOTE_UPDATE_COMMAND_TIMEOUT_SEC=300`
+- `HA4LINUX_REMOTE_UPDATE_APPLY_COMMAND=/usr/local/bin/ha4linux-update-apply`
+- `HA4LINUX_REMOTE_UPDATE_ROLLBACK_COMMAND=/usr/local/bin/ha4linux-update-rollback`
+- `HA4LINUX_REMOTE_UPDATE_ALLOW_IN_READONLY=false`
+
+Formato minimo de manifest:
+
+```json
+{
+  "version": "0.4.1",
+  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/v0.4.1"
+}
+```
+
+Tambien se admite formato por canales:
+
+```json
+{
+  "channels": {
+    "stable": {
+      "version": "0.4.1",
+      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/v0.4.1"
+    }
+  }
+}
+```
 
 Para `HA4LINUX_SENSORS_VIRTUALBOX=true` con `HA4LINUX_VIRTUALBOX_USER` distinto de `ha4linux`,
 el instalador deja configurada una regla `sudoers` de solo lectura para `VBoxManage list`.
