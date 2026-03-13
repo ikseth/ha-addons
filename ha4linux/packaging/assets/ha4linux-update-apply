@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DATA_DIR="/var/lib/ha4linux"
+REQUEST_FILE="${DATA_DIR}/update-request.json"
+ROOT_HELPER="/opt/ha4linux/update/ha4linux-update-apply-root.py"
+
+mkdir -p "${DATA_DIR}"
+
+python3 - "${REQUEST_FILE}" << 'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+request_path = Path(sys.argv[1])
+payload = {
+    "target_version": os.getenv("HA4LINUX_TARGET_VERSION", "").strip(),
+    "installed_version": os.getenv("HA4LINUX_INSTALLED_VERSION", "").strip(),
+    "channel": os.getenv("HA4LINUX_CHANNEL", "").strip(),
+    "manifest_url": os.getenv("HA4LINUX_MANIFEST_URL", "").strip(),
+    "asset_url": os.getenv("HA4LINUX_UPDATE_ASSET_URL", "").strip(),
+    "asset_sha256": os.getenv("HA4LINUX_UPDATE_ASSET_SHA256", "").strip(),
+}
+if not payload["target_version"]:
+    raise SystemExit("HA4LINUX_TARGET_VERSION is required")
+request_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+
+exec sudo -n "${ROOT_HELPER}"

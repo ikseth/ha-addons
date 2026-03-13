@@ -9,8 +9,13 @@ REQ_SRC="${HA4LINUX_ROOT}/requirements.txt"
 SERVICE_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux.service"
 CONFIG_EXAMPLE_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux.config.example.json"
 SUDOERS_SRC="${HA4LINUX_ROOT}/packaging/assets/sudoers.ha4linux"
+UPDATE_APPLY_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-apply"
+UPDATE_ROLLBACK_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-rollback"
+UPDATE_APPLY_ROOT_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-apply-root.py"
+UPDATE_ROLLBACK_ROOT_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-rollback-root.py"
 
 INSTALL_DIR="/opt/ha4linux"
+UPDATE_DIR="${INSTALL_DIR}/update"
 ETC_DIR="/etc/ha4linux"
 CERT_DIR="/etc/ha4linux/certs"
 POLICY_DIR="/etc/ha4linux/policies"
@@ -19,6 +24,10 @@ CONFIG_FILE_DEFAULT="/etc/ha4linux/config.json"
 ENV_FILE="/etc/ha4linux/ha4linux.env"
 SERVICE_FILE="/etc/systemd/system/ha4linux.service"
 SUDOERS_FILE="/etc/sudoers.d/ha4linux"
+UPDATE_APPLY_TARGET="${UPDATE_DIR}/ha4linux-update-apply"
+UPDATE_ROLLBACK_TARGET="${UPDATE_DIR}/ha4linux-update-rollback"
+UPDATE_APPLY_ROOT_TARGET="${UPDATE_DIR}/ha4linux-update-apply-root.py"
+UPDATE_ROLLBACK_ROOT_TARGET="${UPDATE_DIR}/ha4linux-update-rollback-root.py"
 LOG_DIR="/var/log/ha4linux"
 DATA_DIR="/var/lib/ha4linux"
 SKIP_DEPS=false
@@ -62,6 +71,14 @@ def as_csv(value: str | None) -> list[str]:
     if value is None:
         return []
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def prefer_env_string(name: str, default: str) -> str:
+    value = env.get(name)
+    if value is None:
+        return default
+    token = value.strip()
+    return token if token else default
 
 
 destination = Path(sys.argv[1])
@@ -143,13 +160,13 @@ remote_update["command_timeout_sec"] = as_int(
     env.get("HA4LINUX_REMOTE_UPDATE_COMMAND_TIMEOUT_SEC"),
     int(remote_update.get("command_timeout_sec", 300)),
 )
-remote_update["apply_command"] = env.get(
+remote_update["apply_command"] = prefer_env_string(
     "HA4LINUX_REMOTE_UPDATE_APPLY_COMMAND",
-    remote_update.get("apply_command", ""),
+    str(remote_update.get("apply_command", "")),
 )
-remote_update["rollback_command"] = env.get(
+remote_update["rollback_command"] = prefer_env_string(
     "HA4LINUX_REMOTE_UPDATE_ROLLBACK_COMMAND",
-    remote_update.get("rollback_command", ""),
+    str(remote_update.get("rollback_command", "")),
 )
 remote_update["allow_in_readonly"] = as_bool(
     env.get("HA4LINUX_REMOTE_UPDATE_ALLOW_IN_READONLY"),
@@ -227,13 +244,23 @@ install_files() {
   [[ -d "${APP_SRC}" ]] || fail "App source not found at ${APP_SRC}"
   [[ -f "${REQ_SRC}" ]] || fail "requirements.txt not found"
   [[ -f "${CONFIG_EXAMPLE_SRC}" ]] || fail "config template not found"
+  [[ -f "${UPDATE_APPLY_SRC}" ]] || fail "update apply helper not found"
+  [[ -f "${UPDATE_ROLLBACK_SRC}" ]] || fail "update rollback helper not found"
+  [[ -f "${UPDATE_APPLY_ROOT_SRC}" ]] || fail "root update apply helper not found"
+  [[ -f "${UPDATE_ROLLBACK_ROOT_SRC}" ]] || fail "root update rollback helper not found"
 
-  mkdir -p "${INSTALL_DIR}" "${ETC_DIR}" "${CERT_DIR}" "${POLICY_DIR}" "${LOG_DIR}" "${DATA_DIR}"
+  mkdir -p "${INSTALL_DIR}" "${UPDATE_DIR}" "${ETC_DIR}" "${CERT_DIR}" "${POLICY_DIR}" "${LOG_DIR}" "${DATA_DIR}"
   chown root:ha4linux "${POLICY_DIR}"
   chmod 770 "${POLICY_DIR}"
 
+  rm -rf "${INSTALL_DIR}/app"
+  rm -f "${INSTALL_DIR}/requirements.txt"
   cp -a "${APP_SRC}" "${INSTALL_DIR}/"
   cp -a "${REQ_SRC}" "${INSTALL_DIR}/requirements.txt"
+  install -m 755 "${UPDATE_APPLY_SRC}" "${UPDATE_APPLY_TARGET}"
+  install -m 755 "${UPDATE_ROLLBACK_SRC}" "${UPDATE_ROLLBACK_TARGET}"
+  install -m 755 "${UPDATE_APPLY_ROOT_SRC}" "${UPDATE_APPLY_ROOT_TARGET}"
+  install -m 755 "${UPDATE_ROLLBACK_ROOT_SRC}" "${UPDATE_ROLLBACK_ROOT_TARGET}"
 
   chown -R root:root "${INSTALL_DIR}"
   chown -R ha4linux:ha4linux "${LOG_DIR}" "${DATA_DIR}"

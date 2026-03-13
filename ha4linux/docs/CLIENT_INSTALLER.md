@@ -99,16 +99,18 @@ Variables de update remoto (opcional, desactivado por defecto):
 - `HA4LINUX_REMOTE_UPDATE_CHECK_INTERVAL_SEC=1800`
 - `HA4LINUX_REMOTE_UPDATE_CHECK_TIMEOUT_SEC=10`
 - `HA4LINUX_REMOTE_UPDATE_COMMAND_TIMEOUT_SEC=300`
-- `HA4LINUX_REMOTE_UPDATE_APPLY_COMMAND=/usr/local/bin/ha4linux-update-apply`
-- `HA4LINUX_REMOTE_UPDATE_ROLLBACK_COMMAND=/usr/local/bin/ha4linux-update-rollback`
+- `HA4LINUX_REMOTE_UPDATE_APPLY_COMMAND=/opt/ha4linux/update/ha4linux-update-apply`
+- `HA4LINUX_REMOTE_UPDATE_ROLLBACK_COMMAND=/opt/ha4linux/update/ha4linux-update-rollback`
 - `HA4LINUX_REMOTE_UPDATE_ALLOW_IN_READONLY=false`
 
-Formato minimo de manifest:
+Formato minimo de manifest para update remoto con instalacion:
 
 ```json
 {
-  "version": "0.4.2",
-  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/v0.4.2"
+  "version": "0.5.0",
+  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.0",
+  "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.0.tar.gz",
+  "sha256": "..."
 }
 ```
 
@@ -118,12 +120,29 @@ Tambien se admite formato por canales:
 {
   "channels": {
     "stable": {
-      "version": "0.4.2",
-      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/v0.4.2"
+      "version": "0.5.0",
+      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.0",
+      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.0.tar.gz",
+      "sha256": "..."
     }
   }
 }
 ```
+
+El instalador cliente deja preparados por defecto los helpers:
+
+- `/opt/ha4linux/update/ha4linux-update-apply`
+- `/opt/ha4linux/update/ha4linux-update-rollback`
+- `/opt/ha4linux/update/ha4linux-update-apply-root.py`
+- `/opt/ha4linux/update/ha4linux-update-rollback-root.py`
+
+Flujo esperado:
+
+- HA detecta una version nueva via `/v1/update/status`
+- HA invoca `/v1/update/apply`
+- El host descarga el artefacto desde GitHub, valida `sha256`, crea backup y reinstala
+- `ha4linux.service` se reinicia de forma controlada
+- Si la instalacion falla, se restaura el backup automaticamente
 
 Para `modules.virtualbox.enabled=true` con `modules.virtualbox.user` distinto de `ha4linux`,
 el instalador deja configurada una regla `sudoers` de solo lectura para `VBoxManage list`.
@@ -150,7 +169,7 @@ Requisitos de build: `dpkg-deb`, `jq`.
 ```bash
 cd /ruta/ha-addons/ha4linux
 ./packaging/scripts/build-deb.sh
-sudo dpkg -i ./packaging/ha4linux-client_0.2.0_$(dpkg --print-architecture).deb
+sudo dpkg -i ./packaging/ha4linux-client_0.5.0_$(dpkg --print-architecture).deb
 ```
 
 ### Red Hat / openSUSE (.rpm)

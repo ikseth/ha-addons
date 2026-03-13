@@ -104,13 +104,13 @@ def _resolve_value(
     default: Any,
     *candidates: tuple[str, ...],
 ) -> Any:
-    json_value = _pick_config_value(config, *candidates)
-    if json_value is not _MISSING:
-        return json_value
-
     env_value = os.getenv(env_key)
     if env_value is not None:
         return env_value
+
+    json_value = _pick_config_value(config, *candidates)
+    if json_value is not _MISSING:
+        return json_value
 
     return default
 

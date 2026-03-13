@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_HELPER="/opt/ha4linux/update/ha4linux-update-rollback-root.py"
+
+exec sudo -n "${ROOT_HELPER}"
