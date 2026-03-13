@@ -7,7 +7,7 @@ HA4LINUX_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 APP_SRC="${HA4LINUX_ROOT}/app"
 REQ_SRC="${HA4LINUX_ROOT}/requirements.txt"
 SERVICE_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux.service"
-ENV_EXAMPLE_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux.env.example"
+CONFIG_EXAMPLE_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux.config.example.json"
 SUDOERS_SRC="${HA4LINUX_ROOT}/packaging/assets/sudoers.ha4linux"
 
 INSTALL_DIR="/opt/ha4linux"
@@ -15,6 +15,7 @@ ETC_DIR="/etc/ha4linux"
 CERT_DIR="/etc/ha4linux/certs"
 POLICY_DIR="/etc/ha4linux/policies"
 POLICY_FILE="/etc/ha4linux/policies/apps.json"
+CONFIG_FILE_DEFAULT="/etc/ha4linux/config.json"
 ENV_FILE="/etc/ha4linux/ha4linux.env"
 SERVICE_FILE="/etc/systemd/system/ha4linux.service"
 SUDOERS_FILE="/etc/sudoers.d/ha4linux"
@@ -25,6 +26,139 @@ START_SERVICE=true
 
 log() { echo "[ha4linux-installer] $*"; }
 fail() { echo "[ha4linux-installer] ERROR: $*" >&2; exit 1; }
+
+append_if_missing() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+  if ! grep -q "^${key}=" "${file}" 2>/dev/null; then
+    echo "${key}=${value}" >> "${file}"
+  fi
+}
+
+write_json_config() {
+  local destination="$1"
+  python3 - "${destination}" "${CONFIG_EXAMPLE_SRC}" << 'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+
+def as_bool(value: str | None, default: bool) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def as_int(value: str | None, default: int) -> int:
+    try:
+        return int(value) if value is not None else default
+    except (TypeError, ValueError):
+        return default
+
+
+def as_csv(value: str | None) -> list[str]:
+    if value is None:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+destination = Path(sys.argv[1])
+template = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+env = os.environ
+
+api = template.setdefault("api", {})
+api["bind_host"] = env.get("HA4LINUX_BIND_HOST", api.get("bind_host", "0.0.0.0"))
+api["bind_port"] = as_int(env.get("HA4LINUX_BIND_PORT"), int(api.get("bind_port", 8099)))
+api["token"] = env.get("HA4LINUX_API_TOKEN", api.get("token", ""))
+
+tls = template.setdefault("tls", {})
+tls["enabled"] = as_bool(env.get("HA4LINUX_TLS_ENABLED"), bool(tls.get("enabled", True)))
+tls["certfile"] = env.get("HA4LINUX_TLS_CERTFILE", tls.get("certfile", "/etc/ha4linux/certs/server.crt"))
+tls["keyfile"] = env.get("HA4LINUX_TLS_KEYFILE", tls.get("keyfile", "/etc/ha4linux/certs/server.key"))
+
+template["readonly_mode"] = as_bool(env.get("HA4LINUX_READONLY_MODE"), bool(template.get("readonly_mode", False)))
+
+modules = template.setdefault("modules", {})
+modules.setdefault("cpu", {})["enabled"] = as_bool(env.get("HA4LINUX_SENSORS_CPU"), True)
+modules.setdefault("memory", {})["enabled"] = as_bool(env.get("HA4LINUX_SENSORS_MEMORY"), True)
+modules.setdefault("raid", {})["enabled"] = as_bool(env.get("HA4LINUX_SENSORS_RAID"), True)
+modules.setdefault("app_policies", {})["enabled"] = as_bool(env.get("HA4LINUX_SENSORS_APP_POLICIES"), True)
+
+network = modules.setdefault("network", {})
+network["enabled"] = as_bool(env.get("HA4LINUX_SENSORS_NETWORK"), True)
+network["include_interfaces"] = as_csv(env.get("HA4LINUX_NETWORK_INCLUDE_INTERFACES"))
+network["exclude_interfaces"] = as_csv(env.get("HA4LINUX_NETWORK_EXCLUDE_INTERFACES"))
+network["aggregate_mode"] = env.get("HA4LINUX_NETWORK_AGGREGATE_MODE", network.get("aggregate_mode", "selected"))
+
+virtualbox = modules.setdefault("virtualbox", {})
+virtualbox["enabled"] = as_bool(env.get("HA4LINUX_SENSORS_VIRTUALBOX"), False)
+virtualbox["user"] = env.get("HA4LINUX_VIRTUALBOX_USER", virtualbox.get("user", ""))
+
+services = modules.setdefault("services", {})
+services["enabled"] = as_bool(env.get("HA4LINUX_SENSORS_SERVICES"), False)
+services["watchlist"] = as_csv(
+    env.get("HA4LINUX_SERVICES_WATCHLIST", ",".join(services.get("watchlist", [])))
+)
+
+filesystem = modules.setdefault("filesystem", {})
+filesystem["enabled"] = as_bool(env.get("HA4LINUX_SENSORS_FILESYSTEM"), True)
+filesystem["exclude_types"] = as_csv(
+    env.get("HA4LINUX_FILESYSTEM_EXCLUDE_TYPES", ",".join(filesystem.get("exclude_types", [])))
+)
+filesystem["exclude_mounts"] = as_csv(
+    env.get("HA4LINUX_FILESYSTEM_EXCLUDE_MOUNTS", ",".join(filesystem.get("exclude_mounts", [])))
+)
+
+actuators = template.setdefault("actuators", {})
+session = actuators.setdefault("session", {})
+session["enabled"] = as_bool(env.get("HA4LINUX_ACTUATOR_SESSION"), True)
+session["allowed_users"] = as_csv(env.get("HA4LINUX_ALLOWED_SESSION_USERS"))
+
+app_policy_actuator = actuators.setdefault("app_policy", {})
+app_policy_actuator["enabled"] = as_bool(env.get("HA4LINUX_ACTUATOR_APP_POLICY"), True)
+
+app_policies = template.setdefault("app_policies", {})
+app_policies["file"] = env.get("HA4LINUX_APP_POLICY_FILE", app_policies.get("file", "/etc/ha4linux/policies/apps.json"))
+app_policies["use_sudo_kill"] = as_bool(
+    env.get("HA4LINUX_APP_POLICY_USE_SUDO_KILL"),
+    bool(app_policies.get("use_sudo_kill", True)),
+)
+
+management = template.setdefault("management", {})
+remote_update = management.setdefault("remote_update", {})
+remote_update["enabled"] = as_bool(env.get("HA4LINUX_REMOTE_UPDATE_ENABLED"), False)
+remote_update["manifest_url"] = env.get("HA4LINUX_REMOTE_UPDATE_MANIFEST_URL", remote_update.get("manifest_url", ""))
+remote_update["channel"] = env.get("HA4LINUX_REMOTE_UPDATE_CHANNEL", remote_update.get("channel", "stable"))
+remote_update["check_interval_sec"] = as_int(
+    env.get("HA4LINUX_REMOTE_UPDATE_CHECK_INTERVAL_SEC"),
+    int(remote_update.get("check_interval_sec", 1800)),
+)
+remote_update["check_timeout_sec"] = as_int(
+    env.get("HA4LINUX_REMOTE_UPDATE_CHECK_TIMEOUT_SEC"),
+    int(remote_update.get("check_timeout_sec", 10)),
+)
+remote_update["command_timeout_sec"] = as_int(
+    env.get("HA4LINUX_REMOTE_UPDATE_COMMAND_TIMEOUT_SEC"),
+    int(remote_update.get("command_timeout_sec", 300)),
+)
+remote_update["apply_command"] = env.get(
+    "HA4LINUX_REMOTE_UPDATE_APPLY_COMMAND",
+    remote_update.get("apply_command", ""),
+)
+remote_update["rollback_command"] = env.get(
+    "HA4LINUX_REMOTE_UPDATE_ROLLBACK_COMMAND",
+    remote_update.get("rollback_command", ""),
+)
+remote_update["allow_in_readonly"] = as_bool(
+    env.get("HA4LINUX_REMOTE_UPDATE_ALLOW_IN_READONLY"),
+    bool(remote_update.get("allow_in_readonly", False)),
+)
+
+destination.write_text(json.dumps(template, indent=2) + "\n", encoding="utf-8")
+PY
+}
 
 require_root() {
   if [[ "${EUID}" -ne 0 ]]; then
@@ -92,6 +226,7 @@ ensure_system_user() {
 install_files() {
   [[ -d "${APP_SRC}" ]] || fail "App source not found at ${APP_SRC}"
   [[ -f "${REQ_SRC}" ]] || fail "requirements.txt not found"
+  [[ -f "${CONFIG_EXAMPLE_SRC}" ]] || fail "config template not found"
 
   mkdir -p "${INSTALL_DIR}" "${ETC_DIR}" "${CERT_DIR}" "${POLICY_DIR}" "${LOG_DIR}" "${DATA_DIR}"
   chown root:ha4linux "${POLICY_DIR}"
@@ -103,44 +238,37 @@ install_files() {
   chown -R root:root "${INSTALL_DIR}"
   chown -R ha4linux:ha4linux "${LOG_DIR}" "${DATA_DIR}"
 
-  if [[ ! -f "${ENV_FILE}" ]]; then
-    cp "${ENV_EXAMPLE_SRC}" "${ENV_FILE}"
-    TOKEN="$(openssl rand -hex 24)"
-    sed -i "s/^HA4LINUX_API_TOKEN=.*/HA4LINUX_API_TOKEN=${TOKEN}/" "${ENV_FILE}"
-    chmod 640 "${ENV_FILE}"
-    chown root:ha4linux "${ENV_FILE}"
-    log "Generated initial API token in ${ENV_FILE}"
+  if [[ -f "${ENV_FILE}" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "${ENV_FILE}"
+    set +a
   fi
 
-  # Keep config forwards-compatible during upgrades.
-  append_if_missing() {
-    key="$1"; value="$2"
-    if ! grep -q "^${key}=" "${ENV_FILE}"; then
-      echo "${key}=${value}" >> "${ENV_FILE}"
-    fi
-  }
-  append_if_missing HA4LINUX_SENSORS_APP_POLICIES true
-  append_if_missing HA4LINUX_SENSORS_RAID true
-  append_if_missing HA4LINUX_SENSORS_VIRTUALBOX false
-  append_if_missing HA4LINUX_SENSORS_SERVICES false
-  append_if_missing HA4LINUX_SENSORS_FILESYSTEM true
-  append_if_missing HA4LINUX_READONLY_MODE false
-  append_if_missing HA4LINUX_VIRTUALBOX_USER ""
-  append_if_missing HA4LINUX_SERVICES_WATCHLIST "apache2.service,mariadb.service,smbd.service,docker.service"
-  append_if_missing HA4LINUX_FILESYSTEM_EXCLUDE_TYPES "tmpfs,ramfs,devtmpfs,proc,sysfs,cgroup,cgroup2,pstore,debugfs,tracefs,securityfs,configfs,fusectl,mqueue,hugetlbfs,autofs,bpf,binfmt_misc,squashfs,overlay,nfs,nfs4,cifs,smbfs,sshfs,fuse.sshfs,glusterfs,ceph,9p"
-  append_if_missing HA4LINUX_FILESYSTEM_EXCLUDE_MOUNTS "/proc,/sys,/dev,/run,/var/lib/docker,/var/lib/containers"
-  append_if_missing HA4LINUX_ACTUATOR_APP_POLICY true
-  append_if_missing HA4LINUX_APP_POLICY_FILE "${POLICY_FILE}"
-  append_if_missing HA4LINUX_APP_POLICY_USE_SUDO_KILL true
-  append_if_missing HA4LINUX_REMOTE_UPDATE_ENABLED false
-  append_if_missing HA4LINUX_REMOTE_UPDATE_MANIFEST_URL ""
-  append_if_missing HA4LINUX_REMOTE_UPDATE_CHANNEL stable
-  append_if_missing HA4LINUX_REMOTE_UPDATE_CHECK_INTERVAL_SEC 1800
-  append_if_missing HA4LINUX_REMOTE_UPDATE_CHECK_TIMEOUT_SEC 10
-  append_if_missing HA4LINUX_REMOTE_UPDATE_COMMAND_TIMEOUT_SEC 300
-  append_if_missing HA4LINUX_REMOTE_UPDATE_APPLY_COMMAND ""
-  append_if_missing HA4LINUX_REMOTE_UPDATE_ROLLBACK_COMMAND ""
-  append_if_missing HA4LINUX_REMOTE_UPDATE_ALLOW_IN_READONLY false
+  if [[ -z "${HA4LINUX_API_TOKEN:-}" ]]; then
+    export HA4LINUX_API_TOKEN
+    HA4LINUX_API_TOKEN="$(openssl rand -hex 24)"
+    log "Generated initial API token for structured config"
+  fi
+
+  config_file="${HA4LINUX_CONFIG_FILE:-${CONFIG_FILE_DEFAULT}}"
+  if [[ ! -f "${config_file}" ]]; then
+    write_json_config "${config_file}"
+    chmod 640 "${config_file}"
+    chown root:ha4linux "${config_file}"
+    log "Created structured config in ${config_file}"
+  fi
+
+  if [[ ! -f "${ENV_FILE}" ]]; then
+    printf 'HA4LINUX_CONFIG_FILE=%s\n' "${config_file}" > "${ENV_FILE}"
+    chmod 640 "${ENV_FILE}"
+    chown root:ha4linux "${ENV_FILE}"
+    log "Created bootstrap env file in ${ENV_FILE}"
+  else
+    append_if_missing "${ENV_FILE}" HA4LINUX_CONFIG_FILE "${config_file}"
+    chmod 640 "${ENV_FILE}"
+    chown root:ha4linux "${ENV_FILE}"
+  fi
 
   if [[ ! -f "${CERT_DIR}/server.crt" || ! -f "${CERT_DIR}/server.key" ]]; then
     HOST_CN="$(hostname -f 2>/dev/null || hostname)"
@@ -196,7 +324,8 @@ install_service() {
   fi
 
   systemctl daemon-reload
-  systemctl enable --now ha4linux.service
+  systemctl enable ha4linux.service >/dev/null 2>&1 || true
+  systemctl restart ha4linux.service
   systemctl --no-pager --full status ha4linux.service | sed -n '1,20p'
 }
 
@@ -240,7 +369,8 @@ main() {
   fi
 
   log "Installation complete"
-  log "Config file: ${ENV_FILE}"
+  log "Config file: ${config_file:-${CONFIG_FILE_DEFAULT}}"
+  log "Bootstrap env: ${ENV_FILE}"
   log "Service: systemctl status ha4linux.service"
 }
 

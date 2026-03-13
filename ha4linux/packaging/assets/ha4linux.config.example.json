@@ -1,0 +1,114 @@
+{
+  "api": {
+    "bind_host": "0.0.0.0",
+    "bind_port": 8099,
+    "token": "__HA4LINUX_API_TOKEN__"
+  },
+  "tls": {
+    "enabled": true,
+    "certfile": "/etc/ha4linux/certs/server.crt",
+    "keyfile": "/etc/ha4linux/certs/server.key"
+  },
+  "readonly_mode": false,
+  "modules": {
+    "cpu": {
+      "enabled": true
+    },
+    "memory": {
+      "enabled": true
+    },
+    "network": {
+      "enabled": true,
+      "include_interfaces": [],
+      "exclude_interfaces": [],
+      "aggregate_mode": "selected"
+    },
+    "raid": {
+      "enabled": true
+    },
+    "virtualbox": {
+      "enabled": false,
+      "user": ""
+    },
+    "services": {
+      "enabled": false,
+      "watchlist": [
+        "apache2.service",
+        "mariadb.service",
+        "smbd.service",
+        "docker.service"
+      ]
+    },
+    "filesystem": {
+      "enabled": true,
+      "exclude_types": [
+        "tmpfs",
+        "ramfs",
+        "devtmpfs",
+        "proc",
+        "sysfs",
+        "cgroup",
+        "cgroup2",
+        "pstore",
+        "debugfs",
+        "tracefs",
+        "securityfs",
+        "configfs",
+        "fusectl",
+        "mqueue",
+        "hugetlbfs",
+        "autofs",
+        "bpf",
+        "binfmt_misc",
+        "squashfs",
+        "overlay",
+        "nfs",
+        "nfs4",
+        "cifs",
+        "smbfs",
+        "sshfs",
+        "fuse.sshfs",
+        "glusterfs",
+        "ceph",
+        "9p"
+      ],
+      "exclude_mounts": [
+        "/proc",
+        "/sys",
+        "/dev",
+        "/run",
+        "/var/lib/docker",
+        "/var/lib/containers"
+      ]
+    },
+    "app_policies": {
+      "enabled": true
+    }
+  },
+  "actuators": {
+    "session": {
+      "enabled": true,
+      "allowed_users": []
+    },
+    "app_policy": {
+      "enabled": true
+    }
+  },
+  "app_policies": {
+    "file": "/etc/ha4linux/policies/apps.json",
+    "use_sudo_kill": true
+  },
+  "management": {
+    "remote_update": {
+      "enabled": false,
+      "manifest_url": "",
+      "channel": "stable",
+      "check_interval_sec": 1800,
+      "check_timeout_sec": 10,
+      "command_timeout_sec": 300,
+      "apply_command": "",
+      "rollback_command": "",
+      "allow_in_readonly": false
+    }
+  }
+}

@@ -24,7 +24,8 @@ Esto realiza:
 - Instalacion de dependencias
 - Creacion de usuario/grupo `ha4linux`
 - Instalacion en `/opt/ha4linux`
-- Config en `/etc/ha4linux/ha4linux.env`
+- Config estructurada en `/etc/ha4linux/config.json`
+- Bootstrap minimo en `/etc/ha4linux/ha4linux.env`
 - TLS autofirmado en `/etc/ha4linux/certs`
 - Politicas de apps en `/etc/ha4linux/policies/apps.json`
   - Se crea vacio por defecto (`{\"apps\": []}`); anade solo las apps que quieras controlar.
@@ -33,23 +34,62 @@ Esto realiza:
 
 ## Ajustes post-instalacion
 
-Editar configuracion:
+Editar configuracion principal:
 
 ```bash
-sudo nano /etc/ha4linux/ha4linux.env
+sudo nano /etc/ha4linux/config.json
 ```
 
-Variables nuevas de monitorizacion avanzada:
+Bloques relevantes del JSON:
 
-- `HA4LINUX_SENSORS_RAID=true|false`
-- `HA4LINUX_SENSORS_VIRTUALBOX=true|false`
-- `HA4LINUX_VIRTUALBOX_USER=<usuario_con_vms>`
-- `HA4LINUX_SENSORS_SERVICES=true|false`
-- `HA4LINUX_SERVICES_WATCHLIST=apache2.service,mariadb.service,smbd.service,docker.service`
-- `HA4LINUX_SENSORS_FILESYSTEM=true|false`
-- `HA4LINUX_FILESYSTEM_EXCLUDE_TYPES=tmpfs,ramfs,...,nfs,nfs4,cifs,...`
-- `HA4LINUX_FILESYSTEM_EXCLUDE_MOUNTS=/proc,/sys,/dev,/run,/var/lib/docker,/var/lib/containers`
-- `HA4LINUX_READONLY_MODE=true|false` (desactiva actuadores en entornos criticos)
+- `modules.raid.enabled`
+- `modules.virtualbox.enabled`
+- `modules.virtualbox.user`
+- `modules.services.enabled`
+- `modules.services.watchlist`
+- `modules.network.include_interfaces`
+- `modules.network.exclude_interfaces`
+- `modules.network.aggregate_mode`
+- `modules.filesystem.enabled`
+- `modules.filesystem.exclude_types`
+- `modules.filesystem.exclude_mounts`
+- `readonly_mode`
+
+Ejemplo:
+
+```json
+{
+  "api": {
+    "bind_port": 8099,
+    "token": "CAMBIAR_TOKEN"
+  },
+  "modules": {
+    "network": {
+      "enabled": true,
+      "include_interfaces": ["enp1s0", "bond0"],
+      "exclude_interfaces": ["docker*", "veth*"],
+      "aggregate_mode": "selected"
+    },
+    "raid": {
+      "enabled": true
+    },
+    "virtualbox": {
+      "enabled": true,
+      "user": "ignacio"
+    },
+    "services": {
+      "enabled": true,
+      "watchlist": ["apache2.service", "mariadb.service", "docker.service"]
+    }
+  },
+  "readonly_mode": false
+}
+```
+
+Fallback legacy por entorno:
+
+- `HA4LINUX_CONFIG_FILE=/etc/ha4linux/config.json`
+- Cualquier `HA4LINUX_*` antigua sigue funcionando como fallback si el valor no esta en JSON
 
 Variables de update remoto (opcional, desactivado por defecto):
 
@@ -67,8 +107,8 @@ Formato minimo de manifest:
 
 ```json
 {
-  "version": "0.4.1",
-  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/v0.4.1"
+  "version": "0.4.2",
+  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/v0.4.2"
 }
 ```
 
@@ -78,14 +118,14 @@ Tambien se admite formato por canales:
 {
   "channels": {
     "stable": {
-      "version": "0.4.1",
-      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/v0.4.1"
+      "version": "0.4.2",
+      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/v0.4.2"
     }
   }
 }
 ```
 
-Para `HA4LINUX_SENSORS_VIRTUALBOX=true` con `HA4LINUX_VIRTUALBOX_USER` distinto de `ha4linux`,
+Para `modules.virtualbox.enabled=true` con `modules.virtualbox.user` distinto de `ha4linux`,
 el instalador deja configurada una regla `sudoers` de solo lectura para `VBoxManage list`.
 
 Reiniciar servicio:
