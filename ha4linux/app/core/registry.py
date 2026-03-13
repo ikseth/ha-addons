@@ -35,7 +35,11 @@ class ModuleRegistry:
             self.sensors[MemorySensor.id] = MemorySensor()
 
         if self.settings.sensors_network:
-            self.sensors[NetworkSensor.id] = NetworkSensor()
+            self.sensors[NetworkSensor.id] = NetworkSensor(
+                include_interfaces=self.settings.network_include_interfaces,
+                exclude_interfaces=self.settings.network_exclude_interfaces,
+                aggregate_mode=self.settings.network_aggregate_mode,
+            )
 
         if self.settings.sensors_raid:
             if Path("/proc/mdstat").exists():
@@ -87,7 +91,7 @@ class ModuleRegistry:
     def _build_virtualbox_sensor(self) -> VirtualBoxSensor | None:
         if not self.settings.virtualbox_user:
             LOGGER.info(
-                "Skipping sensor '%s': HA4LINUX_VIRTUALBOX_USER not configured",
+                "Skipping sensor '%s': virtualbox user not configured",
                 VirtualBoxSensor.id,
             )
             return None

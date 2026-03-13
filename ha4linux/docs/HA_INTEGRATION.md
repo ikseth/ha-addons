@@ -63,6 +63,10 @@ Sensores dinamicos por recurso (si el modulo esta disponible):
 - RAID `<mdX>` (estado y atributos de discos).
 - Service `<unit.service>` (estado `systemd`).
 - VM `<name>` (estado VirtualBox).
+- NIC `<ifname>` RX Bytes
+- NIC `<ifname>` TX Bytes
+- NIC `<ifname>` RX Window
+- NIC `<ifname>` TX Window
 - FS `<mountpoint>` Used %
 - FS `<mountpoint>` Used GiB
 - FS `<mountpoint>` Free GiB
@@ -72,11 +76,15 @@ Compatibilidad con estadisticas de Home Assistant:
 - `CPU Load 1m`, `CPU Load 5m`, `Memory Used` y `Memory Used KB` usan `state_class=measurement`.
 - `Network RX Bytes` y `Network TX Bytes` usan `device_class=data_size`, unidad `B` y `state_class=total_increasing`.
 - `Network RX Window` y `Network TX Window` usan `device_class=data_size`, unidad `KiB` y `state_class=measurement`.
+- `NIC * RX Bytes` y `NIC * TX Bytes` usan `device_class=data_size`, unidad `B` y `state_class=total_increasing`.
+- `NIC * RX Window` y `NIC * TX Window` usan `device_class=data_size`, unidad `KiB` y `state_class=measurement`.
 - Los contadores resumen de RAID/VirtualBox/Services/Filesystem usan `state_class=measurement`.
 - `FS <mountpoint> Used %` usa `state_class=measurement`.
 - `FS <mountpoint> Used GiB` y `FS <mountpoint> Free GiB` usan `device_class=data_size`, unidad `GiB` y `state_class=measurement`.
 - Los valores de CPU se publican con precision de 2 decimales.
 - Los sensores `Network * Window` representan el delta agregado de trafico en la ventana entre lecturas (normalmente `scan_interval`).
+- Los sensores `NIC * Window` representan el delta por interfaz en la misma ventana entre lecturas.
+- Si el host API filtra interfaces, los sensores agregados de red reflejan el modo de agregado configurado en ese host (`selected` o `all`).
 - Los sensores de metadata (`API Version`, `API Schema Version`, `API Compatibility`, `API Update State`) son informativos y no se usan para estadisticas.
 
 Switch (si el actuador existe):

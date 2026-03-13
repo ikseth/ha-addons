@@ -1,7 +1,7 @@
 {
   "domain": "ha4linux",
   "name": "HA4Linux",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "documentation": "https://github.com/ikseth/ha-addons/blob/main/ha4linux/docs/HA_INTEGRATION.md",
   "issue_tracker": "https://github.com/ikseth/ha-addons/issues",
   "codeowners": [

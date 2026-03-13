@@ -335,6 +335,7 @@ async def async_setup_entry(
     known_raid_arrays: set[str] = set()
     known_services: set[str] = set()
     known_vms: set[str] = set()
+    known_network_interface_metrics: set[str] = set()
     known_filesystem_metrics: set[str] = set()
 
     def _new_dynamic_entities() -> list[SensorEntity]:
@@ -365,6 +366,25 @@ async def async_setup_entry(
                     continue
                 known_vms.add(vm_uuid)
                 new_entities.append(HA4LinuxVmSensor(coordinator, entry, vm_uuid, vm_name or vm_uuid))
+
+        if "network" in modules:
+            for item in _network_interface_items(coordinator.data):
+                interface_name = str(item.get("name", "")).strip()
+                if not interface_name:
+                    continue
+                for metric_key in ("rx_bytes", "tx_bytes", "rx_kib_window", "tx_kib_window"):
+                    unique_metric_key = f"{interface_name}|{metric_key}"
+                    if unique_metric_key in known_network_interface_metrics:
+                        continue
+                    known_network_interface_metrics.add(unique_metric_key)
+                    new_entities.append(
+                        HA4LinuxNetworkInterfaceSensor(
+                            coordinator,
+                            entry,
+                            interface_name=interface_name,
+                            metric_key=metric_key,
+                        )
+                    )
 
         if "filesystem" in modules:
             for item in _filesystem_items(coordinator.data):
@@ -468,6 +488,30 @@ def _virtualbox_items(data: dict[str, Any] | None) -> list[dict[str, Any]]:
     payload = _sensor_payload(data, "virtualbox")
     vms = payload.get("vms", [])
     return vms if isinstance(vms, list) else []
+
+
+def _network_interface_items(data: dict[str, Any] | None) -> list[dict[str, Any]]:
+    payload = _sensor_payload(data, "network")
+    interfaces = payload.get("interfaces", {})
+    if not isinstance(interfaces, dict):
+        return []
+
+    items: list[dict[str, Any]] = []
+    for name, raw_payload in interfaces.items():
+        if not isinstance(raw_payload, dict):
+            continue
+        items.append(
+            {
+                "name": str(name),
+                "rx_bytes": raw_payload.get("rx_bytes"),
+                "tx_bytes": raw_payload.get("tx_bytes"),
+                "rx_kib_window": raw_payload.get("rx_kib_window"),
+                "tx_kib_window": raw_payload.get("tx_kib_window"),
+            }
+        )
+
+    items.sort(key=lambda item: str(item.get("name", "")))
+    return items
 
 
 def _filesystem_items(data: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -607,6 +651,72 @@ class HA4LinuxServiceSensor(_HA4LinuxBaseSensor):
             "sub_state": item.get("sub_state"),
             "is_active": item.get("is_active"),
             "is_failed": item.get("is_failed"),
+        }
+
+
+class HA4LinuxNetworkInterfaceSensor(_HA4LinuxBaseSensor):
+    _TOTAL_RX_METRIC = "rx_bytes"
+    _TOTAL_TX_METRIC = "tx_bytes"
+    _WINDOW_RX_METRIC = "rx_kib_window"
+    _WINDOW_TX_METRIC = "tx_kib_window"
+
+    def __init__(
+        self,
+        coordinator: HA4LinuxCoordinator,
+        entry: ConfigEntry,
+        *,
+        interface_name: str,
+        metric_key: str,
+    ) -> None:
+        super().__init__(coordinator, entry)
+        self._interface_name = interface_name
+        self._metric_key = metric_key
+        metric_names = {
+            self._TOTAL_RX_METRIC: "RX Bytes",
+            self._TOTAL_TX_METRIC: "TX Bytes",
+            self._WINDOW_RX_METRIC: "RX Window",
+            self._WINDOW_TX_METRIC: "TX Window",
+        }
+        metric_suffix = metric_names.get(metric_key, metric_key.replace("_", " "))
+        self._attr_unique_id = f"{entry.entry_id}_network_interface_{_slug(interface_name)}_{metric_key}"
+        self._attr_name = f"NIC {interface_name} {metric_suffix}"
+        self._attr_has_entity_name = True
+
+        if self._metric_key in {self._TOTAL_RX_METRIC, self._TOTAL_TX_METRIC}:
+            self._attr_native_unit_of_measurement = UnitOfInformation.BYTES
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+            self._attr_suggested_display_precision = 0
+        else:
+            self._attr_native_unit_of_measurement = UnitOfInformation.KIBIBYTES
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_suggested_display_precision = 2
+
+        self._attr_device_class = SensorDeviceClass.DATA_SIZE
+
+    def _item(self) -> dict[str, Any] | None:
+        for item in _network_interface_items(self.coordinator.data):
+            if str(item.get("name", "")).strip() == self._interface_name:
+                return item
+        return None
+
+    @property
+    def native_value(self):
+        item = self._item()
+        if not isinstance(item, dict):
+            return None
+        return item.get(self._metric_key)
+
+    @property
+    def extra_state_attributes(self):
+        item = self._item()
+        network_payload = _sensor_payload(self.coordinator.data, "network")
+        if not isinstance(item, dict):
+            return None
+        return {
+            "interface": item.get("name"),
+            "window_seconds": network_payload.get("window_seconds"),
+            "aggregate_mode": network_payload.get("aggregate_mode"),
+            "selected_interfaces": network_payload.get("selected_interfaces"),
         }
 
 

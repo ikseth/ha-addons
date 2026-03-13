@@ -31,6 +31,7 @@
 - `cpu_load`: carga media y numero de CPUs.
 - `memory`: memoria total/disponible/usada.
 - `network`: trafico RX/TX total e interfaces.
+- `network` soporta filtrado declarativo por interfaz y deltas por interfaz para HA.
 - `raid_mdstat`: estado de arrays Linux MD (`/proc/mdstat`).
 - `virtualbox`: estado de VMs de VirtualBox para un usuario configurado.
 - `services`: estado de servicios `systemd` de una watchlist configurable.
@@ -58,6 +59,12 @@ Fuente declarativa en fichero JSON (`HA4LINUX_APP_POLICY_FILE`), con estructura:
 - TLS configurable para transporte seguro.
 - Operaciones sensibles mediante `sudo -n` y politica de `sudoers` restringida.
 - Allowlist opcional de usuarios de sesion (`allowed_session_users`).
+
+## Configuracion
+
+- Cliente Linux: JSON estructurado en `/etc/ha4linux/config.json`.
+- Bootstrap/compatibilidad: `HA4LINUX_CONFIG_FILE` y variables legacy `HA4LINUX_*`.
+- Add-on HA: `options.json` del supervisor, consumido por el mismo loader.
 
 ## Principios
 

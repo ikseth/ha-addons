@@ -2,6 +2,7 @@
 set -e
 
 OPTIONS_FILE="/data/options.json"
+export HA4LINUX_CONFIG_FILE="${OPTIONS_FILE}"
 
 export HA4LINUX_BIND_HOST="0.0.0.0"
 export HA4LINUX_BIND_PORT="8099"

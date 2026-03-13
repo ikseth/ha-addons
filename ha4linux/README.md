@@ -4,7 +4,7 @@ Add-on modular para Home Assistant orientado a monitorizacion y control operativ
 
 ## Estado actual
 
-Version funcional `0.4.1` con:
+Version funcional `0.4.2` con:
 
 - Sensores base: `cpu_load`, `memory`, `network`.
 - Sensores de infraestructura: `raid_mdstat`, `virtualbox`, `services`.
@@ -15,6 +15,7 @@ Version funcional `0.4.1` con:
 - Gestion remota de actualizaciones (opcional y desactivada por defecto): `/v1/update/*`.
 - Seguridad de transporte: TLS configurable (`tls_enabled`, `tls_certfile`, `tls_keyfile`).
 - Seguridad de API: token Bearer (`api_token`).
+- Configuracion estructurada por JSON en cliente Linux, con compatibilidad hacia atras para `env`.
 - Modo de solo lectura para entornos criticos (`readonly_mode`).
 
 ## Entidades objetivo en Home Assistant
@@ -109,6 +110,29 @@ Con filtros configurables:
 
 - `HA4LINUX_FILESYSTEM_EXCLUDE_TYPES`
 - `HA4LINUX_FILESYSTEM_EXCLUDE_MOUNTS`
+
+`network` expone:
+
+- Contadores agregados RX/TX (`total_*` y `*_kib_window`).
+- Contadores diferenciados por interfaz en `interfaces`.
+- Seleccion declarativa de interfaces via `include_interfaces` y `exclude_interfaces`.
+- Modo de agregado `selected|all` para decidir si el resumen usa solo las interfaces elegidas o todas las disponibles.
+
+## Modelo de configuracion
+
+En cliente Linux la configuracion principal pasa a ser JSON estructurado en:
+
+- `/etc/ha4linux/config.json`
+
+El servicio `systemd` mantiene un bootstrap minimo en:
+
+- `/etc/ha4linux/ha4linux.env`
+
+Precedencia efectiva:
+
+- `config.json`
+- fallback a variables `HA4LINUX_*`
+- defaults internos
 
 ## Requisitos para acciones privilegiadas
 
