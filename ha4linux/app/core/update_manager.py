@@ -78,11 +78,13 @@ class UpdateManager:
             "channel": self._channel,
             "manifest_url": self._manifest_url,
             "changelog_url": None,
+            "asset_url": None,
+            "asset_sha256": None,
             "last_checked_at": None,
             "last_applied_at": None,
             "last_error": None,
             "error": None,
-            "supports_apply": bool(self._apply_command),
+            "supports_apply": False,
             "supports_rollback": bool(self._rollback_command),
         }
 
@@ -106,6 +108,8 @@ class UpdateManager:
             manifest = self._fetch_manifest()
             target_version = str(manifest.get("version", "")).strip()
             changelog_url = str(manifest.get("changelog_url", "")).strip() or None
+            asset_url = str(manifest.get("asset_url", "")).strip() or None
+            asset_sha256 = str(manifest.get("sha256", "")).strip() or None
 
             current_semver = _parse_semver(self._api_version)
             target_semver = _parse_semver(target_version)
@@ -125,9 +129,13 @@ class UpdateManager:
                         "target_version": target_version,
                         "update_available": update_available,
                         "changelog_url": changelog_url,
+                        "asset_url": asset_url,
+                        "asset_sha256": asset_sha256,
                         "last_checked_at": _now_iso(),
                         "last_error": None,
                         "error": None,
+                        "supports_apply": bool(self._apply_command and asset_url),
+                        "supports_rollback": bool(self._rollback_command),
                     }
                 )
                 return dict(self._state)
@@ -149,6 +157,10 @@ class UpdateManager:
         selected_version = (target_version or current.get("target_version") or "").strip()
         if not selected_version:
             return self._set_error("target version unavailable")
+        asset_url = str(current.get("asset_url") or "").strip()
+        asset_sha256 = str(current.get("asset_sha256") or "").strip()
+        if not asset_url:
+            return self._set_error("update asset URL not available")
 
         current_semver = _parse_semver(self._api_version)
         selected_semver = _parse_semver(selected_version)
@@ -173,21 +185,24 @@ class UpdateManager:
                     "HA4LINUX_INSTALLED_VERSION": self._api_version,
                     "HA4LINUX_CHANNEL": self._channel,
                     "HA4LINUX_MANIFEST_URL": self._manifest_url,
+                    "HA4LINUX_UPDATE_ASSET_URL": asset_url,
+                    "HA4LINUX_UPDATE_ASSET_SHA256": asset_sha256,
                 },
             )
             with self._lock:
                 self._state.update(
                     {
                         "ok": True,
-                        "state": "idle",
+                        "state": "restarting",
+                        "target_version": selected_version,
                         "last_applied_at": _now_iso(),
                         "last_error": None,
                         "error": None,
+                        "asset_url": asset_url,
+                        "asset_sha256": asset_sha256,
                     }
                 )
-            # Re-evaluate status against manifest to avoid false positives when
-            # apply command succeeds but installed version is still unchanged.
-            return self.check()
+                return dict(self._state)
         except Exception as exc:
             return self._set_error(str(exc))
 
@@ -209,7 +224,7 @@ class UpdateManager:
                 self._state.update(
                     {
                         "ok": True,
-                        "state": "idle",
+                        "state": "restarting",
                         "last_error": None,
                         "error": None,
                     }
@@ -281,6 +296,8 @@ class UpdateManager:
                     "state": "error",
                     "last_error": message,
                     "error": message,
+                    "supports_apply": bool(self._apply_command and self._state.get("asset_url")),
+                    "supports_rollback": bool(self._rollback_command),
                 }
             )
             return dict(self._state)

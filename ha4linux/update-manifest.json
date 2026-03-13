@@ -1,8 +1,10 @@
 {
   "channels": {
     "stable": {
-      "version": "0.4.2",
-      "changelog_url": "https://github.com/ikseth/ha-addons/commit/0b92c4d2cab8d443ec9fc2cd3c07c7d9b0048263"
+      "version": "0.5.0",
+      "changelog_url": "https://github.com/ikseth/ha-addons/tree/main/ha4linux",
+      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.0.tar.gz",
+      "sha256": "d4de957bda2b57b856a2fa9c5003de5f06219862f4e1934bc46c2ff5fbfe6e71"
     }
   }
 }

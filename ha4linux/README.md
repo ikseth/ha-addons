@@ -4,7 +4,7 @@ Add-on modular para Home Assistant orientado a monitorizacion y control operativ
 
 ## Estado actual
 
-Version funcional `0.4.2` con:
+Version funcional `0.5.0` con:
 
 - Sensores base: `cpu_load`, `memory`, `network`.
 - Sensores de infraestructura: `raid_mdstat`, `virtualbox`, `services`.
@@ -13,6 +13,7 @@ Version funcional `0.4.2` con:
 - Actuador de sesion grafica: `session_manager` (`status`, `activate`, `terminate`).
 - Actuador modular de politicas de apps: `app_policy` (`status`, `allow`, `block`, `enforce`, `reload`).
 - Gestion remota de actualizaciones (opcional y desactivada por defecto): `/v1/update/*`.
+- Ultima milla de actualizacion remota: manifiesto con artefacto y checksum, helper local con backup y rollback.
 - Seguridad de transporte: TLS configurable (`tls_enabled`, `tls_certfile`, `tls_keyfile`).
 - Seguridad de API: token Bearer (`api_token`).
 - Configuracion estructurada por JSON en cliente Linux, con compatibilidad hacia atras para `env`.
@@ -130,8 +131,8 @@ El servicio `systemd` mantiene un bootstrap minimo en:
 
 Precedencia efectiva:
 
+- variables `HA4LINUX_*`
 - `config.json`
-- fallback a variables `HA4LINUX_*`
 - defaults internos
 
 ## Requisitos para acciones privilegiadas

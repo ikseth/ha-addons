@@ -106,8 +106,8 @@
       "check_interval_sec": 1800,
       "check_timeout_sec": 10,
       "command_timeout_sec": 300,
-      "apply_command": "",
-      "rollback_command": "",
+      "apply_command": "/opt/ha4linux/update/ha4linux-update-apply",
+      "rollback_command": "/opt/ha4linux/update/ha4linux-update-rollback",
       "allow_in_readonly": false
     }
   }

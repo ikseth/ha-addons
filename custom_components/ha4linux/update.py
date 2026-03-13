@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+from contextlib import suppress
 from typing import Any
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
@@ -81,6 +83,11 @@ class HA4LinuxApiUpdateEntity(_HA4LinuxBaseUpdate):
     def _status(self) -> dict[str, Any]:
         return _update_payload(self.coordinator.data)
 
+    async def _async_deferred_refresh(self) -> None:
+        await asyncio.sleep(5)
+        with suppress(Exception):
+            await self.coordinator.async_request_refresh()
+
     @property
     def available(self) -> bool:
         status = self._status()
@@ -134,6 +141,8 @@ class HA4LinuxApiUpdateEntity(_HA4LinuxBaseUpdate):
             "update_available": status.get("update_available"),
             "channel": status.get("channel"),
             "manifest_url": status.get("manifest_url"),
+            "asset_url": status.get("asset_url"),
+            "asset_sha256": status.get("asset_sha256"),
             "supports_apply": status.get("supports_apply"),
             "supports_rollback": status.get("supports_rollback"),
             "last_checked_at": status.get("last_checked_at"),
@@ -160,4 +169,7 @@ class HA4LinuxApiUpdateEntity(_HA4LinuxBaseUpdate):
         if not apply_result.get("ok", False):
             raise HomeAssistantError(apply_result.get("error", "Unable to apply update"))
 
-        await self.coordinator.async_request_refresh()
+        updated_data = dict(self.coordinator.data)
+        updated_data["update"] = apply_result
+        self.coordinator.async_set_updated_data(updated_data)
+        self.hass.async_create_task(self._async_deferred_refresh())
