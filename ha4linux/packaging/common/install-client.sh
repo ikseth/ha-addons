@@ -45,6 +45,23 @@ append_if_missing() {
   fi
 }
 
+copy_if_different() {
+  local src="$1"
+  local dst="$2"
+  local mode="$3"
+  local tmp_file
+
+  mkdir -p "$(dirname "${dst}")"
+  if [[ -e "${dst}" ]] && cmp -s "${src}" "${dst}"; then
+    return
+  fi
+
+  tmp_file="$(mktemp "${dst}.ha4linux.XXXXXX")"
+  cp "${src}" "${tmp_file}"
+  chmod "${mode}" "${tmp_file}"
+  mv -f "${tmp_file}" "${dst}"
+}
+
 write_json_config() {
   local destination="$1"
   python3 - "${destination}" "${CONFIG_EXAMPLE_SRC}" << 'PY'
@@ -340,11 +357,9 @@ setup_venv() {
 }
 
 install_service() {
-  cp "${SERVICE_SRC}" "${SERVICE_FILE}"
-  chmod 644 "${SERVICE_FILE}"
+  copy_if_different "${SERVICE_SRC}" "${SERVICE_FILE}" 644
 
-  cp "${SUDOERS_SRC}" "${SUDOERS_FILE}"
-  chmod 440 "${SUDOERS_FILE}"
+  copy_if_different "${SUDOERS_SRC}" "${SUDOERS_FILE}" 440
 
   if command -v visudo >/dev/null 2>&1; then
     visudo -cf "${SUDOERS_FILE}" >/dev/null
@@ -384,10 +399,8 @@ main() {
   if [[ "${START_SERVICE}" == "true" ]]; then
     install_service
   else
-    cp "${SERVICE_SRC}" "${SERVICE_FILE}"
-    chmod 644 "${SERVICE_FILE}"
-    cp "${SUDOERS_SRC}" "${SUDOERS_FILE}"
-    chmod 440 "${SUDOERS_FILE}"
+    copy_if_different "${SERVICE_SRC}" "${SERVICE_FILE}" 644
+    copy_if_different "${SUDOERS_SRC}" "${SUDOERS_FILE}" 440
     if command -v visudo >/dev/null 2>&1; then
       visudo -cf "${SUDOERS_FILE}" >/dev/null
     fi
