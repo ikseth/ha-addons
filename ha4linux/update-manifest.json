@@ -1,0 +1,8 @@
+{
+  "channels": {
+    "stable": {
+      "version": "0.4.2",
+      "changelog_url": "https://github.com/ikseth/ha-addons/commit/0b92c4d2cab8d443ec9fc2cd3c07c7d9b0048263"
+    }
+  }
+}
