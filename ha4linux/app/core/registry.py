@@ -15,6 +15,7 @@ from app.sensors.memory import MemorySensor
 from app.sensors.network import NetworkSensor
 from app.sensors.raid_mdstat import RaidMdstatSensor
 from app.sensors.services import ServicesSensor
+from app.sensors.system_info import SystemInfoSensor
 from app.sensors.virtualbox import VirtualBoxSensor
 
 LOGGER = logging.getLogger(__name__)
@@ -61,6 +62,14 @@ class ModuleRegistry:
             self.sensors[FilesystemSensor.id] = FilesystemSensor(
                 exclude_types=self.settings.filesystem_exclude_types,
                 exclude_mounts=self.settings.filesystem_exclude_mounts,
+            )
+
+        if self.settings.sensors_system_info:
+            self.sensors[SystemInfoSensor.id] = SystemInfoSensor(
+                updates_enabled=self.settings.system_updates_enabled,
+                updates_check_interval_sec=self.settings.system_updates_check_interval_sec,
+                updates_command_timeout_sec=self.settings.system_updates_command_timeout_sec,
+                updates_max_packages=self.settings.system_updates_max_packages,
             )
 
         app_policy_actuator_enabled = (

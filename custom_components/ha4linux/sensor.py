@@ -15,8 +15,9 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers import entity_registry as er
 
-from .const import CONF_HOST, DOMAIN
+from .const import CONF_HOST, DEPRECATED_ENTITY_UNIQUE_IDS, DOMAIN
 from .coordinator import HA4LinuxCoordinator
 
 
@@ -26,6 +27,7 @@ class HA4LinuxSensorDef:
     module_id: str
     description: SensorEntityDescription
     value_fn: Callable[[dict[str, Any]], float | int | str | None]
+    attributes_fn: Callable[[dict[str, Any]], dict[str, Any] | None] | None = None
 
 
 @dataclass(frozen=True)
@@ -120,58 +122,6 @@ SENSOR_DEFS: tuple[HA4LinuxSensorDef, ...] = (
             state_class=SensorStateClass.MEASUREMENT,
         ),
         value_fn=lambda d: d.get("memory", {}).get("data", {}).get("used_kb"),
-    ),
-    HA4LinuxSensorDef(
-        key="network_rx_bytes",
-        module_id="network",
-        description=SensorEntityDescription(
-            key="network_rx_bytes",
-            name="Network RX Bytes",
-            native_unit_of_measurement=UnitOfInformation.BYTES,
-            device_class=SensorDeviceClass.DATA_SIZE,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-            suggested_display_precision=0,
-        ),
-        value_fn=lambda d: d.get("network", {}).get("data", {}).get("total_rx_bytes"),
-    ),
-    HA4LinuxSensorDef(
-        key="network_tx_bytes",
-        module_id="network",
-        description=SensorEntityDescription(
-            key="network_tx_bytes",
-            name="Network TX Bytes",
-            native_unit_of_measurement=UnitOfInformation.BYTES,
-            device_class=SensorDeviceClass.DATA_SIZE,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-            suggested_display_precision=0,
-        ),
-        value_fn=lambda d: d.get("network", {}).get("data", {}).get("total_tx_bytes"),
-    ),
-    HA4LinuxSensorDef(
-        key="network_rx_kib_window",
-        module_id="network",
-        description=SensorEntityDescription(
-            key="network_rx_kib_window",
-            name="Network RX Window",
-            native_unit_of_measurement=UnitOfInformation.KIBIBYTES,
-            device_class=SensorDeviceClass.DATA_SIZE,
-            state_class=SensorStateClass.MEASUREMENT,
-            suggested_display_precision=2,
-        ),
-        value_fn=lambda d: d.get("network", {}).get("data", {}).get("rx_kib_window"),
-    ),
-    HA4LinuxSensorDef(
-        key="network_tx_kib_window",
-        module_id="network",
-        description=SensorEntityDescription(
-            key="network_tx_kib_window",
-            name="Network TX Window",
-            native_unit_of_measurement=UnitOfInformation.KIBIBYTES,
-            device_class=SensorDeviceClass.DATA_SIZE,
-            state_class=SensorStateClass.MEASUREMENT,
-            suggested_display_precision=2,
-        ),
-        value_fn=lambda d: d.get("network", {}).get("data", {}).get("tx_kib_window"),
     ),
     HA4LinuxSensorDef(
         key="raid_arrays_total",
@@ -309,6 +259,47 @@ SENSOR_DEFS: tuple[HA4LinuxSensorDef, ...] = (
         ),
         value_fn=lambda d: d.get("app_policies", {}).get("data", {}).get("violation_count"),
     ),
+    HA4LinuxSensorDef(
+        key="operating_system",
+        module_id="system_info",
+        description=SensorEntityDescription(
+            key="operating_system",
+            name="Operating System",
+        ),
+        value_fn=lambda d: _system_module_payload(d).get("distribution"),
+        attributes_fn=lambda d: _operating_system_attributes(_system_module_payload(d)),
+    ),
+    HA4LinuxSensorDef(
+        key="package_manager",
+        module_id="system_info",
+        description=SensorEntityDescription(
+            key="package_manager",
+            name="Package Manager",
+        ),
+        value_fn=lambda d: _system_module_payload(d).get("package_manager"),
+    ),
+    HA4LinuxSensorDef(
+        key="package_updates_state",
+        module_id="system_info",
+        description=SensorEntityDescription(
+            key="package_updates_state",
+            name="Package Updates State",
+        ),
+        value_fn=lambda d: _system_module_payload(d).get("updates_state"),
+        attributes_fn=lambda d: _package_updates_attributes(_system_module_payload(d)),
+    ),
+    HA4LinuxSensorDef(
+        key="pending_package_updates",
+        module_id="system_info",
+        description=SensorEntityDescription(
+            key="pending_package_updates",
+            name="Pending Package Updates",
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=0,
+        ),
+        value_fn=lambda d: _package_updates_count(_system_module_payload(d)),
+        attributes_fn=lambda d: _package_updates_attributes(_system_module_payload(d)),
+    ),
 )
 
 
@@ -318,6 +309,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: HA4LinuxCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    _async_remove_deprecated_network_entities(hass, entry)
     meta_entities: list[SensorEntity] = [
         HA4LinuxMetaSensor(coordinator, entry, definition)
         for definition in META_SENSOR_DEFS
@@ -420,6 +412,26 @@ async def async_setup_entry(
     entry.async_on_unload(coordinator.async_add_listener(_handle_coordinator_update))
 
 
+def _async_remove_deprecated_network_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    registry = er.async_get(hass)
+    host = str(entry.options.get(CONF_HOST, entry.data.get(CONF_HOST, "linux"))).strip() or "linux"
+    host_slug = host.replace(".", "_")
+    target_unique_ids = {
+        f"{entry.entry_id}_{unique_id}"
+        for unique_id in DEPRECATED_ENTITY_UNIQUE_IDS
+    }
+    target_entity_ids = {
+        f"sensor.ha4linux_{host_slug}_network_rx_bytes",
+        f"sensor.ha4linux_{host_slug}_network_tx_bytes",
+        f"sensor.ha4linux_{host_slug}_network_rx_window",
+        f"sensor.ha4linux_{host_slug}_network_tx_window",
+    }
+
+    for entity_entry in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if entity_entry.unique_id in target_unique_ids or entity_entry.entity_id in target_entity_ids:
+            registry.async_remove(entity_entry.entity_id)
+
+
 def _available_modules(data: dict[str, Any] | None) -> set[str]:
     if not isinstance(data, dict):
         return set()
@@ -520,6 +532,72 @@ def _filesystem_items(data: dict[str, Any] | None) -> list[dict[str, Any]]:
     return filesystems if isinstance(filesystems, list) else []
 
 
+def _system_module_payload(sensors: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(sensors, dict):
+        return {}
+
+    module = sensors.get("system_info", {})
+    if not isinstance(module, dict):
+        return {}
+
+    payload = module.get("data", {})
+    return payload if isinstance(payload, dict) else {}
+
+
+def _operating_system_attributes(payload: dict[str, Any]) -> dict[str, Any] | None:
+    if not payload:
+        return None
+
+    return {
+        "hostname": payload.get("hostname"),
+        "os_name": payload.get("os_name"),
+        "distribution_name": payload.get("distribution_name"),
+        "distribution_id": payload.get("distribution_id"),
+        "distribution_like": payload.get("distribution_like"),
+        "distribution_version": payload.get("distribution_version"),
+        "distribution_codename": payload.get("distribution_codename"),
+        "kernel_release": payload.get("kernel_release"),
+        "kernel_version": payload.get("kernel_version"),
+        "architecture": payload.get("architecture"),
+        "package_manager": payload.get("package_manager"),
+    }
+
+
+def _package_updates_count(payload: dict[str, Any]) -> int | None:
+    if not payload:
+        return None
+    if not bool(payload.get("updates_enabled", False)):
+        return None
+    if not bool(payload.get("updates_supported", False)):
+        return None
+    if str(payload.get("updates_state", "")).strip().lower() != "idle":
+        return None
+
+    count = payload.get("updates_pending_count")
+    return int(count) if isinstance(count, (int, float)) else None
+
+
+def _package_updates_attributes(payload: dict[str, Any]) -> dict[str, Any] | None:
+    if not payload:
+        return None
+
+    return {
+        "updates_refresh_in_progress": payload.get("updates_refresh_in_progress"),
+        "updates_enabled": payload.get("updates_enabled"),
+        "updates_supported": payload.get("updates_supported"),
+        "updates_state": payload.get("updates_state"),
+        "updates_pending_count": payload.get("updates_pending_count"),
+        "updates_last_checked_at": payload.get("updates_last_checked_at"),
+        "updates_check_interval_sec": payload.get("updates_check_interval_sec"),
+        "updates_last_error": payload.get("updates_last_error"),
+        "updates_error": payload.get("updates_error"),
+        "updates_packages_total": payload.get("updates_packages_total"),
+        "updates_packages_truncated": payload.get("updates_packages_truncated"),
+        "updates_packages": payload.get("updates_packages"),
+        "package_manager": payload.get("package_manager"),
+    }
+
+
 def _slug(value: str) -> str:
     normalized = "".join(ch.lower() if ch.isalnum() else "_" for ch in value.strip())
     return normalized.strip("_") or "unknown"
@@ -581,6 +659,13 @@ class HA4LinuxSensor(_HA4LinuxBaseSensor):
     def native_value(self):
         data = self.coordinator.data.get("sensors", {}) if self.coordinator.data else {}
         return self._def.value_fn(data)
+
+    @property
+    def extra_state_attributes(self):
+        if self._def.attributes_fn is None:
+            return None
+        data = self.coordinator.data.get("sensors", {}) if self.coordinator.data else {}
+        return self._def.attributes_fn(data)
 
 
 class HA4LinuxRaidArraySensor(_HA4LinuxBaseSensor):

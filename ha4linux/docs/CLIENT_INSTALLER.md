@@ -53,6 +53,11 @@ Bloques relevantes del JSON:
 - `modules.filesystem.enabled`
 - `modules.filesystem.exclude_types`
 - `modules.filesystem.exclude_mounts`
+- `modules.system_info.enabled`
+- `modules.system_info.updates_enabled`
+- `modules.system_info.updates_check_interval_sec`
+- `modules.system_info.updates_command_timeout_sec`
+- `modules.system_info.updates_max_packages`
 - `readonly_mode`
 
 Ejemplo:
@@ -103,13 +108,26 @@ Variables de update remoto (opcional, desactivado por defecto):
 - `HA4LINUX_REMOTE_UPDATE_ROLLBACK_COMMAND=/opt/ha4linux/update/ha4linux-update-rollback`
 - `HA4LINUX_REMOTE_UPDATE_ALLOW_IN_READONLY=false`
 
+Variables de updates del sistema:
+
+- `HA4LINUX_SENSORS_SYSTEM_INFO=true|false`
+- `HA4LINUX_SYSTEM_UPDATES_ENABLED=true|false`
+- `HA4LINUX_SYSTEM_UPDATES_CHECK_INTERVAL_SEC=86400`
+- `HA4LINUX_SYSTEM_UPDATES_COMMAND_TIMEOUT_SEC=60`
+- `HA4LINUX_SYSTEM_UPDATES_MAX_PACKAGES=25`
+
+Notas operativas:
+
+- El check de paquetes pendientes se ejecuta en segundo plano y se cachea; no bloquea `GET /v1/sensors`.
+- Hasta completar el primer refresh valido, el host devolvera `updates_state=checking`.
+
 Formato minimo de manifest para update remoto con instalacion:
 
 ```json
 {
-  "version": "0.5.1",
-  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.1",
-  "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.1.tar.gz",
+  "version": "0.5.2",
+  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.2",
+  "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.2.tar.gz",
   "sha256": "..."
 }
 ```
@@ -120,9 +138,9 @@ Tambien se admite formato por canales:
 {
   "channels": {
     "stable": {
-      "version": "0.5.1",
-      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.1",
-      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.1.tar.gz",
+      "version": "0.5.2",
+      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.2",
+      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.2.tar.gz",
       "sha256": "..."
     }
   }
@@ -169,7 +187,7 @@ Requisitos de build: `dpkg-deb`, `jq`.
 ```bash
 cd /ruta/ha-addons/ha4linux
 ./packaging/scripts/build-deb.sh
-sudo dpkg -i ./packaging/ha4linux-client_0.5.1_$(dpkg --print-architecture).deb
+sudo dpkg -i ./packaging/ha4linux-client_0.5.2_$(dpkg --print-architecture).deb
 ```
 
 ### Red Hat / openSUSE (.rpm)

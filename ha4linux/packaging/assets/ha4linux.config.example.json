@@ -81,6 +81,13 @@
         "/var/lib/containers"
       ]
     },
+    "system_info": {
+      "enabled": true,
+      "updates_enabled": true,
+      "updates_check_interval_sec": 86400,
+      "updates_command_timeout_sec": 60,
+      "updates_max_packages": 25
+    },
     "app_policies": {
       "enabled": true
     }

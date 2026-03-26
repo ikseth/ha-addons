@@ -32,6 +32,10 @@ Sensores:
 - API Schema Version
 - API Compatibility
 - API Update State
+- Operating System
+- Package Manager
+- Package Updates State
+- Pending Package Updates
 - CPU Load 1m
 - CPU Load 5m
 - Memory Used (%)
@@ -115,3 +119,11 @@ Notas de update remoto:
 
 - La comprobacion de disponibilidad de nuevas versiones la gobierna el host API (`HA4LINUX_REMOTE_UPDATE_CHECK_INTERVAL_SEC`).
 - La accion de instalar desde la entidad `update` ejecuta `POST /v1/update/check` y `POST /v1/update/apply`.
+
+Notas de updates del sistema:
+
+- El modulo `system_info` expone distribucion, version, kernel y gestor de paquetes del host Linux.
+- La comprobacion de paquetes pendientes se ejecuta en el host y queda cacheada por defecto durante `86400` segundos.
+- El refresco de paquetes se lanza en segundo plano para no bloquear el poll de Home Assistant; hasta disponer de una muestra valida, el estado expuesto sera `checking`.
+- Cuando el host devuelve `updates_pending_count > 0`, la integracion crea una notificacion persistente en Home Assistant.
+- La comprobacion es best effort y actualmente soporta `apt`, `dnf`, `yum`, `zypper` y `pacman/checkupdates` si estan disponibles.

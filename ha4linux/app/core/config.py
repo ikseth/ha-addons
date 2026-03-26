@@ -131,6 +131,7 @@ class Settings:
     sensors_services: bool
     sensors_filesystem: bool
     sensors_app_policies: bool
+    sensors_system_info: bool
     actuator_session: bool
     actuator_app_policy: bool
     readonly_mode: bool
@@ -153,6 +154,10 @@ class Settings:
     remote_update_apply_command: str
     remote_update_rollback_command: str
     remote_update_allow_in_readonly: bool
+    system_updates_enabled: bool
+    system_updates_check_interval_sec: int
+    system_updates_command_timeout_sec: int
+    system_updates_max_packages: int
 
     def __init__(self) -> None:
         self.config_file = _discover_config_file()
@@ -297,6 +302,16 @@ class Settings:
                 True,
                 ("modules", "app_policies", "enabled"),
                 ("sensors_app_policies",),
+            ),
+            True,
+        )
+        self.sensors_system_info = _as_bool(
+            _resolve_value(
+                config,
+                "HA4LINUX_SENSORS_SYSTEM_INFO",
+                True,
+                ("modules", "system_info", "enabled"),
+                ("sensors_system_info",),
             ),
             True,
         )
@@ -541,6 +556,52 @@ class Settings:
                 ("remote_update_allow_in_readonly",),
             ),
             False,
+        )
+        self.system_updates_enabled = _as_bool(
+            _resolve_value(
+                config,
+                "HA4LINUX_SYSTEM_UPDATES_ENABLED",
+                True,
+                ("modules", "system_info", "updates_enabled"),
+                ("system_updates_enabled",),
+            ),
+            True,
+        )
+        self.system_updates_check_interval_sec = _as_int(
+            _resolve_value(
+                config,
+                "HA4LINUX_SYSTEM_UPDATES_CHECK_INTERVAL_SEC",
+                86400,
+                ("modules", "system_info", "updates_check_interval_sec"),
+                ("system_updates_check_interval_sec",),
+            ),
+            86400,
+            minimum=3600,
+            maximum=604800,
+        )
+        self.system_updates_command_timeout_sec = _as_int(
+            _resolve_value(
+                config,
+                "HA4LINUX_SYSTEM_UPDATES_COMMAND_TIMEOUT_SEC",
+                60,
+                ("modules", "system_info", "updates_command_timeout_sec"),
+                ("system_updates_command_timeout_sec",),
+            ),
+            60,
+            minimum=5,
+            maximum=1800,
+        )
+        self.system_updates_max_packages = _as_int(
+            _resolve_value(
+                config,
+                "HA4LINUX_SYSTEM_UPDATES_MAX_PACKAGES",
+                25,
+                ("modules", "system_info", "updates_max_packages"),
+                ("system_updates_max_packages",),
+            ),
+            25,
+            minimum=1,
+            maximum=200,
         )
 
         raw_users = _resolve_value(
