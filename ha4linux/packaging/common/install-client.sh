@@ -145,6 +145,22 @@ filesystem["exclude_mounts"] = as_csv(
     env.get("HA4LINUX_FILESYSTEM_EXCLUDE_MOUNTS", ",".join(filesystem.get("exclude_mounts", [])))
 )
 
+system_info = modules.setdefault("system_info", {})
+system_info["enabled"] = as_bool(env.get("HA4LINUX_SENSORS_SYSTEM_INFO"), True)
+system_info["updates_enabled"] = as_bool(env.get("HA4LINUX_SYSTEM_UPDATES_ENABLED"), True)
+system_info["updates_check_interval_sec"] = as_int(
+    env.get("HA4LINUX_SYSTEM_UPDATES_CHECK_INTERVAL_SEC"),
+    int(system_info.get("updates_check_interval_sec", 86400)),
+)
+system_info["updates_command_timeout_sec"] = as_int(
+    env.get("HA4LINUX_SYSTEM_UPDATES_COMMAND_TIMEOUT_SEC"),
+    int(system_info.get("updates_command_timeout_sec", 60)),
+)
+system_info["updates_max_packages"] = as_int(
+    env.get("HA4LINUX_SYSTEM_UPDATES_MAX_PACKAGES"),
+    int(system_info.get("updates_max_packages", 25)),
+)
+
 actuators = template.setdefault("actuators", {})
 session = actuators.setdefault("session", {})
 session["enabled"] = as_bool(env.get("HA4LINUX_ACTUATOR_SESSION"), True)

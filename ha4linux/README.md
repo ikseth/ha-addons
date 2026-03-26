@@ -4,11 +4,12 @@ Add-on modular para Home Assistant orientado a monitorizacion y control operativ
 
 ## Estado actual
 
-Version funcional `0.5.1` con:
+Version funcional `0.5.2` con:
 
 - Sensores base: `cpu_load`, `memory`, `network`.
 - Sensores de infraestructura: `raid_mdstat`, `virtualbox`, `services`.
 - Sensor de almacenamiento local: `filesystem` (sin FS de red por defecto).
+- Sensor de sistema: `system_info` (distro/kernel/gestor de paquetes y updates pendientes cacheadas).
 - Sensor modular de politicas de apps: `app_policies`.
 - Actuador de sesion grafica: `session_manager` (`status`, `activate`, `terminate`).
 - Actuador modular de politicas de apps: `app_policy` (`status`, `allow`, `block`, `enforce`, `reload`).
@@ -106,6 +107,16 @@ Por seguridad:
 - `used_percent`
 - `used_gib`
 - `free_gib`
+
+`system_info` expone:
+
+- distribucion Linux detectada via `/etc/os-release`
+- version y codename de la distribucion
+- kernel y arquitectura
+- gestor de paquetes detectado
+- numero de updates de sistema pendientes y preview de paquetes
+
+La comprobacion de updates de sistema se ejecuta localmente en el host y se cachea por defecto durante 24 horas para evitar sondeos pesados en cada poll de Home Assistant. El refresco se lanza en segundo plano para no bloquear `GET /v1/sensors`; mientras no exista una muestra valida, el estado expuesto sera `checking`. La deteccion actual es best effort para `apt`, `dnf`, `yum`, `zypper` y `pacman/checkupdates`.
 
 Con filtros configurables:
 

@@ -1,5 +1,5 @@
 DOMAIN = "ha4linux"
-INTEGRATION_VERSION = "0.5.1"
+INTEGRATION_VERSION = "0.5.2"
 
 CONF_HOST = "host"
 CONF_PORT = "port"
@@ -14,3 +14,10 @@ DEFAULT_VERIFY_SSL = False
 DEFAULT_SCAN_INTERVAL = 20
 
 PLATFORMS = ["sensor", "switch", "update"]
+
+DEPRECATED_ENTITY_UNIQUE_IDS = {
+    "network_rx_bytes",
+    "network_tx_bytes",
+    "network_rx_kib_window",
+    "network_tx_kib_window",
+}
