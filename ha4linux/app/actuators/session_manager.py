@@ -56,17 +56,23 @@ class SessionManagerActuator(Actuator):
                 "--property=Type",
                 "--property=State",
                 "--property=Class",
-                "--value",
             ]
         )
         if process.returncode != 0:
             raise RuntimeError(process.stderr.strip() or "Unable to inspect session")
 
-        values = process.stdout.splitlines()
-        active = values[0].strip().lower() == "yes" if len(values) > 0 else False
-        session_type = values[1].strip() if len(values) > 1 else ""
-        state = values[2].strip() if len(values) > 2 else ""
-        session_class = values[3].strip() if len(values) > 3 else ""
+        values: dict[str, str] = {}
+        for raw_line in process.stdout.splitlines():
+            line = raw_line.strip()
+            if not line or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            values[key.strip()] = value.strip()
+
+        active = values.get("Active", "").lower() == "yes"
+        session_type = values.get("Type", "")
+        state = values.get("State", "")
+        session_class = values.get("Class", "")
 
         return {
             "active": "yes" if active else "no",
@@ -107,7 +113,7 @@ class SessionManagerActuator(Actuator):
             }
 
         if active_session is None:
-            return {"ok": False, "error": "No active graphical session found"}
+            return {"ok": True, "message": "No active graphical session found"}
 
         process = self._run(["sudo", "-n", "loginctl", "terminate-session", active_session["id"]])
         return {

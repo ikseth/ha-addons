@@ -114,12 +114,20 @@ class _HA4LinuxBaseSwitch(CoordinatorEntity[HA4LinuxCoordinator], SwitchEntity):
 class HA4LinuxSessionSwitch(_HA4LinuxBaseSwitch):
     def __init__(self, coordinator: HA4LinuxCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
+        self._session_override: bool | None = None
         self._attr_unique_id = f"{entry.entry_id}_session_active"
         self._attr_name = "Active Graphical Session"
         self._attr_has_entity_name = True
 
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._session_override = None
+        super()._handle_coordinator_update()
+
     @property
     def is_on(self) -> bool:
+        if self._session_override is not None:
+            return self._session_override
         session = self.coordinator.data.get("session") if self.coordinator.data else None
         if not isinstance(session, dict):
             return False
@@ -127,11 +135,31 @@ class HA4LinuxSessionSwitch(_HA4LinuxBaseSwitch):
         return isinstance(active, dict)
 
     async def async_turn_on(self, **kwargs) -> None:
-        await self.coordinator.api.session_activate()
+        if self.is_on:
+            self._session_override = None
+            return
+
+        self._session_override = True
+        self.async_write_ha_state()
+        result = await self.coordinator.api.session_activate()
+        if not result.get("ok", False):
+            self._session_override = None
+            self.async_write_ha_state()
+            raise HomeAssistantError(result.get("error", "Unable to activate graphical session"))
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self.coordinator.api.session_terminate()
+        if not self.is_on:
+            self._session_override = None
+            return
+
+        self._session_override = False
+        self.async_write_ha_state()
+        result = await self.coordinator.api.session_terminate()
+        if not result.get("ok", False):
+            self._session_override = None
+            self.async_write_ha_state()
+            raise HomeAssistantError(result.get("error", "Unable to terminate graphical session"))
         await self.coordinator.async_request_refresh()
 
 
