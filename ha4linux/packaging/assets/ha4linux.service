@@ -13,6 +13,9 @@ ExecStart=/opt/ha4linux/.venv/bin/python -m app.main
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=false
+# VirtualBox VMs started via VBoxManage spawn VBoxHeadless processes that must
+# survive HA4Linux service restarts and stops.
+KillMode=process
 # VirtualBox reports running VMs through IPC sockets under /tmp.
 # PrivateTmp isolates those sockets and makes "list runningvms" return empty.
 PrivateTmp=false
