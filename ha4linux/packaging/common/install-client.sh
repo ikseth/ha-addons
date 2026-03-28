@@ -56,10 +56,148 @@ copy_if_different() {
     return
   fi
 
-  tmp_file="$(mktemp "${dst}.ha4linux.XXXXXX")"
+  tmp_file="$(mktemp "${TMPDIR:-/tmp}/ha4linux-install.XXXXXX")"
   cp "${src}" "${tmp_file}"
   chmod "${mode}" "${tmp_file}"
   mv -f "${tmp_file}" "${dst}"
+}
+
+render_sudoers_policy() {
+  local destination="$1"
+  local selected_config="${config_file:-${HA4LINUX_CONFIG_FILE:-${CONFIG_FILE_DEFAULT}}}"
+
+  python3 - "${destination}" "${selected_config}" << 'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+
+def as_bool(value: object, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def read_config(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def nested_get(data: dict, *keys: str, default=None):
+    current: object = data
+    for key in keys:
+        if not isinstance(current, dict):
+            return default
+        current = current.get(key)
+        if current is None:
+            return default
+    return current
+
+
+def env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return as_bool(value, default)
+
+
+def env_str(name: str, default: str = "") -> str:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip()
+
+
+destination = Path(sys.argv[1])
+config = read_config(Path(sys.argv[2]))
+
+readonly_mode = env_bool(
+    "HA4LINUX_READONLY_MODE",
+    as_bool(nested_get(config, "readonly_mode", default=False), False),
+)
+sensors_virtualbox = env_bool(
+    "HA4LINUX_SENSORS_VIRTUALBOX",
+    as_bool(nested_get(config, "modules", "virtualbox", "enabled", default=False), False),
+)
+actuator_virtualbox = env_bool(
+    "HA4LINUX_ACTUATOR_VIRTUALBOX",
+    as_bool(nested_get(config, "actuators", "virtualbox", "enabled", default=False), False),
+)
+
+if readonly_mode:
+    actuator_virtualbox = False
+
+virtualbox_enabled = sensors_virtualbox or actuator_virtualbox
+
+lines: list[str] = []
+lines.append(
+    "Cmnd_Alias HA4LINUX_SESSION = /usr/bin/loginctl activate *, /usr/bin/loginctl terminate-session *"
+)
+lines.append(
+    "Cmnd_Alias HA4LINUX_APPS = /usr/bin/systemctl stop *, /bin/kill -15 *, /bin/kill -9 *, /usr/bin/kill -15 *, /usr/bin/kill -9 *"
+)
+
+if virtualbox_enabled:
+    virtualbox_commands = [
+        "/usr/bin/VBoxManage list vms",
+        "/usr/bin/VBoxManage list runningvms",
+        "/usr/bin/vboxmanage list vms",
+        "/usr/bin/vboxmanage list runningvms",
+    ]
+    if actuator_virtualbox:
+        virtualbox_commands.extend(
+            [
+                "/usr/bin/VBoxManage showvminfo * --machinereadable",
+                "/usr/bin/VBoxManage startvm * --type *",
+                "/usr/bin/VBoxManage controlvm * acpipowerbutton",
+                "/usr/bin/VBoxManage controlvm * savestate",
+                "/usr/bin/VBoxManage controlvm * poweroff",
+                "/usr/bin/VBoxManage controlvm * reset",
+                "/usr/bin/vboxmanage showvminfo * --machinereadable",
+                "/usr/bin/vboxmanage startvm * --type *",
+                "/usr/bin/vboxmanage controlvm * acpipowerbutton",
+                "/usr/bin/vboxmanage controlvm * savestate",
+                "/usr/bin/vboxmanage controlvm * poweroff",
+                "/usr/bin/vboxmanage controlvm * reset",
+            ]
+        )
+    lines.append(f"Cmnd_Alias HA4LINUX_VBOX = {', '.join(virtualbox_commands)}")
+
+lines.append(
+    "Cmnd_Alias HA4LINUX_UPDATE = /opt/ha4linux/update/ha4linux-update-apply-root.py, /opt/ha4linux/update/ha4linux-update-rollback-root.py"
+)
+lines.append("ha4linux ALL=(root) NOPASSWD: HA4LINUX_SESSION, HA4LINUX_APPS")
+lines.append("ha4linux ALL=(root) NOPASSWD: HA4LINUX_UPDATE")
+
+if virtualbox_enabled:
+    lines.append("ha4linux ALL=(ALL) NOPASSWD: HA4LINUX_VBOX")
+
+lines.append("Defaults:ha4linux !requiretty")
+
+destination.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
+}
+
+install_sudoers_policy() {
+  local rendered_file
+  rendered_file="$(mktemp "${TMPDIR:-/tmp}/ha4linux-sudoers.XXXXXX")"
+  render_sudoers_policy "${rendered_file}"
+  chmod 440 "${rendered_file}"
+
+  if command -v visudo >/dev/null 2>&1; then
+    visudo -cf "${rendered_file}" >/dev/null
+  fi
+
+  copy_if_different "${rendered_file}" "${SUDOERS_FILE}" 440
+  rm -f "${rendered_file}"
 }
 
 write_json_config() {
@@ -397,12 +535,7 @@ setup_venv() {
 
 install_service() {
   copy_if_different "${SERVICE_SRC}" "${SERVICE_FILE}" 644
-
-  copy_if_different "${SUDOERS_SRC}" "${SUDOERS_FILE}" 440
-
-  if command -v visudo >/dev/null 2>&1; then
-    visudo -cf "${SUDOERS_FILE}" >/dev/null
-  fi
+  install_sudoers_policy
 
   systemctl daemon-reload
   systemctl enable ha4linux.service >/dev/null 2>&1 || true
@@ -439,10 +572,7 @@ main() {
     install_service
   else
     copy_if_different "${SERVICE_SRC}" "${SERVICE_FILE}" 644
-    copy_if_different "${SUDOERS_SRC}" "${SUDOERS_FILE}" 440
-    if command -v visudo >/dev/null 2>&1; then
-      visudo -cf "${SUDOERS_FILE}" >/dev/null
-    fi
+    install_sudoers_policy
     systemctl daemon-reload
     log "Service files installed (not started)"
   fi
