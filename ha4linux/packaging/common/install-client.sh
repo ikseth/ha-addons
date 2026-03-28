@@ -59,7 +59,8 @@ copy_if_different() {
   tmp_file="$(mktemp "${TMPDIR:-/tmp}/ha4linux-install.XXXXXX")"
   cp "${src}" "${tmp_file}"
   chmod "${mode}" "${tmp_file}"
-  mv -f "${tmp_file}" "${dst}"
+  cp -f "${tmp_file}" "${dst}"
+  rm -f "${tmp_file}"
 }
 
 render_sudoers_policy() {
@@ -188,6 +189,17 @@ PY
 
 install_sudoers_policy() {
   local rendered_file
+  local readonly_mode_value
+
+  readonly_mode_value="$(_config_readonly_mode)"
+  if [[ "${readonly_mode_value}" == "true" ]] && [[ -f "${SUDOERS_FILE}" ]]; then
+    if command -v visudo >/dev/null 2>&1; then
+      visudo -cf "${SUDOERS_FILE}" >/dev/null
+    fi
+    log "Readonly mode enabled; preserving existing sudoers policy in ${SUDOERS_FILE}"
+    return
+  fi
+
   rendered_file="$(mktemp "${TMPDIR:-/tmp}/ha4linux-sudoers.XXXXXX")"
   render_sudoers_policy "${rendered_file}"
   chmod 440 "${rendered_file}"
@@ -198,6 +210,43 @@ install_sudoers_policy() {
 
   copy_if_different "${rendered_file}" "${SUDOERS_FILE}" 440
   rm -f "${rendered_file}"
+}
+
+_config_readonly_mode() {
+  local selected_config="${config_file:-${HA4LINUX_CONFIG_FILE:-${CONFIG_FILE_DEFAULT}}}"
+
+  python3 - "${selected_config}" << 'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+
+def as_bool(value: object, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+config_path = Path(sys.argv[1])
+config: dict = {}
+if config_path.exists():
+    try:
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+        if isinstance(payload, dict):
+            config = payload
+    except Exception:
+        config = {}
+
+if "HA4LINUX_READONLY_MODE" in os.environ:
+    result = as_bool(os.environ["HA4LINUX_READONLY_MODE"], False)
+else:
+    result = as_bool(config.get("readonly_mode"), False)
+
+print("true" if result else "false")
+PY
 }
 
 write_json_config() {

@@ -7,6 +7,7 @@ import subprocess
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from typing import Any
@@ -240,8 +241,15 @@ class UpdateManager:
         return self._last_check_monotonic <= 0 or elapsed >= self._check_interval_sec
 
     def _fetch_manifest(self) -> dict[str, Any]:
+        parsed_url = urllib.parse.urlsplit(self._manifest_url)
+        query_params = urllib.parse.parse_qsl(parsed_url.query, keep_blank_values=True)
+        # Bypass raw.githubusercontent CDN lag so hosts see the latest stable manifest quickly.
+        query_params.append(("ha4linux_ts", str(int(time.time() // 30))))
+        request_url = urllib.parse.urlunsplit(
+            parsed_url._replace(query=urllib.parse.urlencode(query_params))
+        )
         request = urllib.request.Request(
-            self._manifest_url,
+            request_url,
             method="GET",
             headers={"Accept": "application/json"},
         )
