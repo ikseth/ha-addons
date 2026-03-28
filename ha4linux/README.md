@@ -4,7 +4,7 @@ Add-on modular para Home Assistant orientado a monitorizacion y control operativ
 
 ## Estado actual
 
-Version funcional `0.5.2` con:
+Version funcional `0.5.3` con:
 
 - Sensores base: `cpu_load`, `memory`, `network`.
 - Sensores de infraestructura: `raid_mdstat`, `virtualbox`, `services`.
@@ -13,6 +13,7 @@ Version funcional `0.5.2` con:
 - Sensor modular de politicas de apps: `app_policies`.
 - Actuador de sesion grafica: `session_manager` (`status`, `activate`, `terminate`).
 - Actuador modular de politicas de apps: `app_policy` (`status`, `allow`, `block`, `enforce`, `reload`).
+- Actuador de VirtualBox: `virtualbox_manager` (`status`, `start`, `acpi_shutdown`, `savestate`, con acciones peligrosas opt-in).
 - Gestion remota de actualizaciones (opcional y desactivada por defecto): `/v1/update/*`.
 - Ultima milla de actualizacion remota: manifiesto con artefacto y checksum, helper local con backup y rollback.
 - Seguridad de transporte: TLS configurable (`tls_enabled`, `tls_certfile`, `tls_keyfile`).
@@ -82,6 +83,12 @@ Semantica:
 - `POST /v1/actuators/app_policy/block`
 - `POST /v1/actuators/app_policy/enforce`
 - `POST /v1/actuators/app_policy/reload`
+- `POST /v1/actuators/virtualbox_manager/status`
+- `POST /v1/actuators/virtualbox_manager/start`
+- `POST /v1/actuators/virtualbox_manager/acpi_shutdown`
+- `POST /v1/actuators/virtualbox_manager/savestate`
+- `POST /v1/actuators/virtualbox_manager/poweroff`
+- `POST /v1/actuators/virtualbox_manager/reset`
 
 `GET /v1/version` expone metadatos de version y rango de compatibilidad de la integracion HA:
 

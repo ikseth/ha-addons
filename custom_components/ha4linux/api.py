@@ -150,6 +150,21 @@ class HA4LinuxApiClient:
     async def sensors(self) -> dict[str, Any]:
         return await self._request("GET", "/v1/sensors")
 
+    async def actuator_action(
+        self,
+        actuator_id: str,
+        action: str,
+        payload: dict[str, Any] | None = None,
+        *,
+        timeout_seconds: int = 30,
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"/v1/actuators/{actuator_id}/{action}",
+            payload=payload or {},
+            timeout_seconds=timeout_seconds,
+        )
+
     async def session_status(self) -> dict[str, Any]:
         return await self._request("POST", "/v1/actuators/session_manager/status", payload={})
 
@@ -177,4 +192,41 @@ class HA4LinuxApiClient:
             "POST",
             "/v1/actuators/app_policy/block",
             payload={"app_id": app_id},
+        )
+
+    async def virtualbox_action(
+        self,
+        action: str,
+        *,
+        vm_uuid: str | None = None,
+        vm_name: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if vm_uuid:
+            payload["vm_uuid"] = vm_uuid
+        if vm_name:
+            payload["vm_name"] = vm_name
+        return await self.actuator_action(
+            "virtualbox_manager",
+            action,
+            payload=payload,
+            timeout_seconds=60,
+        )
+
+    async def virtualbox_status(
+        self,
+        *,
+        vm_uuid: str | None = None,
+        vm_name: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if vm_uuid:
+            payload["vm_uuid"] = vm_uuid
+        if vm_name:
+            payload["vm_name"] = vm_name
+        return await self.actuator_action(
+            "virtualbox_manager",
+            "status",
+            payload=payload,
+            timeout_seconds=60,
         )

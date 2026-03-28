@@ -30,7 +30,7 @@ Esto realiza:
 - Politicas de apps en `/etc/ha4linux/policies/apps.json`
   - Se crea vacio por defecto (`{\"apps\": []}`); anade solo las apps que quieras controlar.
 - Servicio `systemd` `ha4linux.service`
-- Politica `sudoers` limitada para `loginctl`
+- Politica `sudoers` limitada para `loginctl`, `systemctl/kill`, updates y `VBoxManage`
 
 ## Ajustes post-instalacion
 
@@ -45,6 +45,11 @@ Bloques relevantes del JSON:
 - `modules.raid.enabled`
 - `modules.virtualbox.enabled`
 - `modules.virtualbox.user`
+- `actuators.virtualbox.enabled`
+- `actuators.virtualbox.allowed_actions`
+- `actuators.virtualbox.allowed_vms`
+- `actuators.virtualbox.start_type`
+- `actuators.virtualbox.switch_turn_off_action`
 - `modules.services.enabled`
 - `modules.services.watchlist`
 - `modules.network.include_interfaces`
@@ -87,6 +92,15 @@ Ejemplo:
       "watchlist": ["apache2.service", "mariadb.service", "docker.service"]
     }
   },
+  "actuators": {
+    "virtualbox": {
+      "enabled": true,
+      "allowed_actions": ["start", "acpi_shutdown", "savestate"],
+      "allowed_vms": ["vm-lab", "12345678-1234-1234-1234-123456789abc"],
+      "start_type": "headless",
+      "switch_turn_off_action": "acpi_shutdown"
+    }
+  },
   "readonly_mode": false
 }
 ```
@@ -125,9 +139,9 @@ Formato minimo de manifest para update remoto con instalacion:
 
 ```json
 {
-  "version": "0.5.2",
-  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.2",
-  "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.2.tar.gz",
+  "version": "0.5.3",
+  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.3",
+  "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.3.tar.gz",
   "sha256": "..."
 }
 ```
@@ -138,9 +152,9 @@ Tambien se admite formato por canales:
 {
   "channels": {
     "stable": {
-      "version": "0.5.2",
-      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.2",
-      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.2.tar.gz",
+      "version": "0.5.3",
+      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.3",
+      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.3.tar.gz",
       "sha256": "..."
     }
   }
@@ -163,7 +177,15 @@ Flujo esperado:
 - Si la instalacion falla, se restaura el backup automaticamente
 
 Para `modules.virtualbox.enabled=true` con `modules.virtualbox.user` distinto de `ha4linux`,
-el instalador deja configurada una regla `sudoers` de solo lectura para `VBoxManage list`.
+el instalador deja configurada una regla `sudoers` para `VBoxManage` limitada a:
+
+- `list`
+- `showvminfo --machinereadable`
+- `startvm --type`
+- `controlvm acpipowerbutton`
+- `controlvm savestate`
+- `controlvm poweroff`
+- `controlvm reset`
 
 Reiniciar servicio:
 
@@ -187,7 +209,7 @@ Requisitos de build: `dpkg-deb`, `jq`.
 ```bash
 cd /ruta/ha-addons/ha4linux
 ./packaging/scripts/build-deb.sh
-sudo dpkg -i ./packaging/ha4linux-client_0.5.2_$(dpkg --print-architecture).deb
+sudo dpkg -i ./packaging/ha4linux-client_0.5.3_$(dpkg --print-architecture).deb
 ```
 
 ### Red Hat / openSUSE (.rpm)

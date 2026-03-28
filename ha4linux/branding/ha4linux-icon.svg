@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">HA4Linux icon</title>
+  <desc id="desc">Provided template image with HA4Linux label added at the lower left.</desc>
+  <image href="ha4linux-icon_template.png" x="0" y="0" width="1024" height="1024" preserveAspectRatio="xMidYMid meet"/>
+  <text x="58" y="996" font-family="DejaVu Sans, sans-serif" font-size="68" font-weight="700" fill="#556b80" stroke="#ffffff" stroke-width="2">HA4Linux</text>
+</svg>

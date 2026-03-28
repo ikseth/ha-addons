@@ -99,6 +99,17 @@
     },
     "app_policy": {
       "enabled": true
+    },
+    "virtualbox": {
+      "enabled": false,
+      "allowed_actions": [
+        "start",
+        "acpi_shutdown",
+        "savestate"
+      ],
+      "allowed_vms": [],
+      "start_type": "headless",
+      "switch_turn_off_action": "acpi_shutdown"
     }
   },
   "app_policies": {

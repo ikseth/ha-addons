@@ -41,6 +41,7 @@
 
 - `session_manager`: `status`, `activate`, `terminate` sobre sesiones graficas (`x11`/`wayland`).
 - `app_policy`: `status`, `allow`, `block`, `enforce`, `reload` para control generico de apps.
+- `virtualbox_manager`: acciones por VM (`start`, `acpi_shutdown`, `savestate`; `poweroff/reset` solo si se habilitan).
 
 ## Politicas de aplicaciones
 
@@ -59,6 +60,7 @@ Fuente declarativa en fichero JSON (`HA4LINUX_APP_POLICY_FILE`), con estructura:
 - TLS configurable para transporte seguro.
 - Operaciones sensibles mediante `sudo -n` y politica de `sudoers` restringida.
 - Allowlist opcional de usuarios de sesion (`allowed_session_users`).
+- Allowlist opcional de VMs y acciones para VirtualBox (`actuators.virtualbox.*`).
 
 ## Configuracion
 

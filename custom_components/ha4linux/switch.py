@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -10,6 +10,13 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_HOST, DOMAIN
 from .coordinator import HA4LinuxCoordinator
+from .virtualbox import (
+    find_virtualbox_item,
+    virtualbox_items,
+    virtualbox_vm_switch_supported,
+    virtualbox_switch_turn_off_action,
+    virtualbox_vm_is_on,
+)
 
 
 async def async_setup_entry(
@@ -33,8 +40,33 @@ async def async_setup_entry(
             if app_id:
                 entities.append(HA4LinuxAppPolicySwitch(coordinator, entry, app_id))
 
+    known_vm_switches: set[str] = set()
+
+    def _new_vm_switches() -> list[SwitchEntity]:
+        new_entities: list[SwitchEntity] = []
+        for item in virtualbox_items(coordinator.data):
+            vm_uuid = str(item.get("uuid", "")).strip()
+            vm_name = str(item.get("name", "")).strip()
+            if not vm_uuid or vm_uuid in known_vm_switches:
+                continue
+            if not virtualbox_vm_switch_supported(coordinator.data, item):
+                continue
+            known_vm_switches.add(vm_uuid)
+            new_entities.append(HA4LinuxVmSwitch(coordinator, entry, vm_uuid, vm_name or vm_uuid))
+        return new_entities
+
+    entities.extend(_new_vm_switches())
+
     if entities:
         async_add_entities(entities)
+
+    @callback
+    def _handle_coordinator_update() -> None:
+        dynamic_entities = _new_vm_switches()
+        if dynamic_entities:
+            async_add_entities(dynamic_entities)
+
+    entry.async_on_unload(coordinator.async_add_listener(_handle_coordinator_update))
 
 
 def _apps_from_data(data: dict | None) -> list[dict]:
@@ -136,3 +168,55 @@ class HA4LinuxAppPolicySwitch(_HA4LinuxBaseSwitch):
         if not result.get("ok", False):
             raise HomeAssistantError(result.get("error", "Unable to block app"))
         await self.coordinator.async_request_refresh()
+
+
+class HA4LinuxVmSwitch(_HA4LinuxBaseSwitch):
+    def __init__(self, coordinator: HA4LinuxCoordinator, entry: ConfigEntry, vm_uuid: str, vm_name: str) -> None:
+        super().__init__(coordinator, entry)
+        self._vm_uuid = vm_uuid
+        self._attr_unique_id = f"{entry.entry_id}_virtualbox_vm_switch_{_slug(vm_uuid)}"
+        self._attr_name = f"VM {vm_name} Power"
+        self._attr_has_entity_name = True
+
+    def _item(self) -> dict | None:
+        return find_virtualbox_item(self.coordinator.data, self._vm_uuid)
+
+    @property
+    def available(self) -> bool:
+        item = self._item()
+        return isinstance(item, dict) and virtualbox_vm_switch_supported(self.coordinator.data, item)
+
+    @property
+    def is_on(self) -> bool:
+        return virtualbox_vm_is_on(self._item())
+
+    @property
+    def extra_state_attributes(self):
+        item = self._item()
+        if not isinstance(item, dict):
+            return None
+        return {
+            "uuid": item.get("uuid"),
+            "status": item.get("status"),
+            "state_raw": item.get("state_raw"),
+            "running": item.get("running"),
+            "powered_on": item.get("powered_on"),
+            "user": item.get("user"),
+        }
+
+    async def async_turn_on(self, **kwargs) -> None:
+        result = await self.coordinator.api.virtualbox_action("start", vm_uuid=self._vm_uuid)
+        if not result.get("ok", False):
+            raise HomeAssistantError(result.get("error", "Unable to start VM"))
+        await self.coordinator.async_request_refresh()
+
+    async def async_turn_off(self, **kwargs) -> None:
+        action = virtualbox_switch_turn_off_action(self.coordinator.data)
+        result = await self.coordinator.api.virtualbox_action(action, vm_uuid=self._vm_uuid)
+        if not result.get("ok", False):
+            raise HomeAssistantError(result.get("error", f"Unable to execute {action}"))
+        await self.coordinator.async_request_refresh()
+
+
+def _slug(value: str) -> str:
+    return "".join(ch if ch.isalnum() else "_" for ch in value.lower()).strip("_")

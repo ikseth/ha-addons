@@ -896,7 +896,12 @@ class HA4LinuxVmSensor(_HA4LinuxBaseSensor):
             return None
         return {
             "uuid": item.get("uuid"),
+            "status": item.get("status"),
+            "state_raw": item.get("state_raw"),
             "running": item.get("running"),
+            "powered_on": item.get("powered_on"),
             "inaccessible": item.get("inaccessible"),
             "user": item.get("user"),
+            "session_name": item.get("session_name"),
+            "os_type": item.get("os_type"),
         }
