@@ -80,6 +80,12 @@ class VirtualBoxManagerActuator(Actuator):
             process = self.client.start_vm(vm_uuid, start_type=self.start_type)
         else:
             if not powered_on:
+                if action_key in _OFF_ACTIONS:
+                    return {
+                        "ok": True,
+                        "message": "VM already powered off",
+                        "vm": vm,
+                    }
                 return {
                     "ok": False,
                     "error": f"VM '{vm.get('name') or vm_uuid}' is not powered on",
