@@ -134,9 +134,14 @@ class Settings:
     sensors_system_info: bool
     actuator_session: bool
     actuator_app_policy: bool
+    actuator_virtualbox: bool
     readonly_mode: bool
     allowed_session_users: set[str]
     virtualbox_user: str
+    virtualbox_allowed_actions: list[str]
+    virtualbox_allowed_vms: list[str]
+    virtualbox_start_type: str
+    virtualbox_switch_turn_off_action: str
     network_include_interfaces: list[str]
     network_exclude_interfaces: list[str]
     network_aggregate_mode: str
@@ -345,6 +350,16 @@ class Settings:
             ),
             True,
         )
+        self.actuator_virtualbox = _as_bool(
+            _resolve_value(
+                config,
+                "HA4LINUX_ACTUATOR_VIRTUALBOX",
+                False,
+                ("actuators", "virtualbox", "enabled"),
+                ("actuator_virtualbox",),
+            ),
+            False,
+        )
         self.virtualbox_user = _as_str(
             _resolve_value(
                 config,
@@ -354,6 +369,46 @@ class Settings:
                 ("virtualbox_user",),
             ),
             "",
+        )
+        self.virtualbox_allowed_actions = _as_csv(
+            _resolve_value(
+                config,
+                "HA4LINUX_VIRTUALBOX_ALLOWED_ACTIONS",
+                ["start", "acpi_shutdown", "savestate"],
+                ("actuators", "virtualbox", "allowed_actions"),
+                ("virtualbox_allowed_actions",),
+            )
+        )
+        self.virtualbox_allowed_vms = _as_csv(
+            _resolve_value(
+                config,
+                "HA4LINUX_VIRTUALBOX_ALLOWED_VMS",
+                [],
+                ("actuators", "virtualbox", "allowed_vms"),
+                ("virtualbox_allowed_vms",),
+            )
+        )
+        self.virtualbox_start_type = _as_choice(
+            _resolve_value(
+                config,
+                "HA4LINUX_VIRTUALBOX_START_TYPE",
+                "headless",
+                ("actuators", "virtualbox", "start_type"),
+                ("virtualbox_start_type",),
+            ),
+            "headless",
+            {"headless", "gui", "separate"},
+        )
+        self.virtualbox_switch_turn_off_action = _as_choice(
+            _resolve_value(
+                config,
+                "HA4LINUX_VIRTUALBOX_SWITCH_TURN_OFF_ACTION",
+                "acpi_shutdown",
+                ("actuators", "virtualbox", "switch_turn_off_action"),
+                ("virtualbox_switch_turn_off_action",),
+            ),
+            "acpi_shutdown",
+            {"acpi_shutdown", "savestate", "poweroff"},
         )
         self.network_include_interfaces = _as_csv(
             _resolve_value(

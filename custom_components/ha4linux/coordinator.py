@@ -38,6 +38,7 @@ class HA4LinuxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "update": update_status,
                 "session": None,
                 "app_policy": None,
+                "virtualbox": None,
             }
 
             actuators = capabilities.get("actuators", [])
@@ -46,6 +47,9 @@ class HA4LinuxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             if isinstance(actuators, list) and "app_policy" in actuators:
                 data["app_policy"] = await self.api.app_policy_status()
+
+            if isinstance(actuators, list) and "virtualbox_manager" in actuators:
+                data["virtualbox"] = await self.api.virtualbox_status()
 
             return data
         except HA4LinuxApiError as exc:

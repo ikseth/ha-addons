@@ -21,7 +21,7 @@ from .const import (
 )
 from .coordinator import HA4LinuxCoordinator
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH, Platform.UPDATE]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH, Platform.BUTTON, Platform.UPDATE]
 _SYSTEM_UPDATES_NOTIFICATION_PREFIX = f"{DOMAIN}_system_updates"
 
 

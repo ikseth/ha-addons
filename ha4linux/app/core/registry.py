@@ -5,8 +5,10 @@ from typing import Any
 from app.actuators.app_policy import AppPolicyActuator
 from app.actuators.base import Actuator
 from app.actuators.session_manager import SessionManagerActuator
+from app.actuators.virtualbox_manager import VirtualBoxManagerActuator
 from app.core.app_policy_manager import AppPolicyManager
 from app.core.config import Settings
+from app.core.virtualbox import VirtualBoxClient
 from app.sensors.app_policies import AppPoliciesSensor
 from app.sensors.base import Sensor
 from app.sensors.cpu_load import CpuLoadSensor
@@ -48,10 +50,22 @@ class ModuleRegistry:
             else:
                 LOGGER.info("Skipping sensor '%s': /proc/mdstat not found", RaidMdstatSensor.id)
 
-        if self.settings.sensors_virtualbox:
-            virtualbox_sensor = self._build_virtualbox_sensor()
-            if virtualbox_sensor is not None:
-                self.sensors[VirtualBoxSensor.id] = virtualbox_sensor
+        virtualbox_actuator_enabled = (
+            self.settings.actuator_virtualbox and not self.settings.readonly_mode
+        )
+        if self.settings.sensors_virtualbox or virtualbox_actuator_enabled:
+            virtualbox_client = self._build_virtualbox_client()
+            if virtualbox_client is not None:
+                if self.settings.sensors_virtualbox:
+                    self.sensors[VirtualBoxSensor.id] = VirtualBoxSensor(client=virtualbox_client)
+                if virtualbox_actuator_enabled:
+                    self.actuators[VirtualBoxManagerActuator.id] = VirtualBoxManagerActuator(
+                        client=virtualbox_client,
+                        allowed_actions=self.settings.virtualbox_allowed_actions,
+                        allowed_vms=self.settings.virtualbox_allowed_vms,
+                        start_type=self.settings.virtualbox_start_type,
+                        switch_turn_off_action=self.settings.virtualbox_switch_turn_off_action,
+                    )
 
         if self.settings.sensors_services:
             services_sensor = self._build_services_sensor()
@@ -97,18 +111,17 @@ class ModuleRegistry:
         if self.settings.readonly_mode:
             LOGGER.info("Readonly mode enabled: actuator modules are disabled")
 
-    def _build_virtualbox_sensor(self) -> VirtualBoxSensor | None:
+    def _build_virtualbox_client(self) -> VirtualBoxClient | None:
         if not self.settings.virtualbox_user:
             LOGGER.info(
-                "Skipping sensor '%s': virtualbox user not configured",
-                VirtualBoxSensor.id,
+                "Skipping virtualbox modules: virtualbox user not configured",
             )
             return None
 
         try:
-            return VirtualBoxSensor(user=self.settings.virtualbox_user)
+            return VirtualBoxClient(user=self.settings.virtualbox_user)
         except ValueError as exc:
-            LOGGER.info("Skipping sensor '%s': %s", VirtualBoxSensor.id, exc)
+            LOGGER.info("Skipping virtualbox modules: %s", exc)
             return None
 
     def _build_services_sensor(self) -> ServicesSensor | None:
@@ -134,6 +147,12 @@ class ModuleRegistry:
                     "reason": str(exc),
                 }
         return data
+
+    def actuator_capabilities(self) -> dict[str, dict[str, Any]]:
+        return {
+            actuator_id: actuator.describe()
+            for actuator_id, actuator in self.actuators.items()
+        }
 
     def execute_actuator(
         self,

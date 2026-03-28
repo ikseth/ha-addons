@@ -169,6 +169,29 @@ session["allowed_users"] = as_csv(env.get("HA4LINUX_ALLOWED_SESSION_USERS"))
 app_policy_actuator = actuators.setdefault("app_policy", {})
 app_policy_actuator["enabled"] = as_bool(env.get("HA4LINUX_ACTUATOR_APP_POLICY"), True)
 
+virtualbox_actuator = actuators.setdefault("virtualbox", {})
+virtualbox_actuator["enabled"] = as_bool(env.get("HA4LINUX_ACTUATOR_VIRTUALBOX"), False)
+virtualbox_actuator["allowed_actions"] = as_csv(
+    env.get(
+        "HA4LINUX_VIRTUALBOX_ALLOWED_ACTIONS",
+        ",".join(virtualbox_actuator.get("allowed_actions", [])),
+    )
+)
+virtualbox_actuator["allowed_vms"] = as_csv(
+    env.get(
+        "HA4LINUX_VIRTUALBOX_ALLOWED_VMS",
+        ",".join(virtualbox_actuator.get("allowed_vms", [])),
+    )
+)
+virtualbox_actuator["start_type"] = prefer_env_string(
+    "HA4LINUX_VIRTUALBOX_START_TYPE",
+    str(virtualbox_actuator.get("start_type", "headless")),
+)
+virtualbox_actuator["switch_turn_off_action"] = prefer_env_string(
+    "HA4LINUX_VIRTUALBOX_SWITCH_TURN_OFF_ACTION",
+    str(virtualbox_actuator.get("switch_turn_off_action", "acpi_shutdown")),
+)
+
 app_policies = template.setdefault("app_policies", {})
 app_policies["file"] = env.get("HA4LINUX_APP_POLICY_FILE", app_policies.get("file", "/etc/ha4linux/policies/apps.json"))
 app_policies["use_sudo_kill"] = as_bool(
