@@ -174,12 +174,20 @@ class HA4LinuxVmSwitch(_HA4LinuxBaseSwitch):
     def __init__(self, coordinator: HA4LinuxCoordinator, entry: ConfigEntry, vm_uuid: str, vm_name: str) -> None:
         super().__init__(coordinator, entry)
         self._vm_uuid = vm_uuid
+        self._power_override: bool | None = None
         self._attr_unique_id = f"{entry.entry_id}_virtualbox_vm_switch_{_slug(vm_uuid)}"
         self._attr_name = f"VM {vm_name} Power"
         self._attr_has_entity_name = True
 
     def _item(self) -> dict | None:
         return find_virtualbox_item(self.coordinator.data, self._vm_uuid)
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        # Coordinator data is the source of truth; clear any optimistic state
+        # once a refresh completes so the entity follows the VM's real status.
+        self._power_override = None
+        super()._handle_coordinator_update()
 
     @property
     def available(self) -> bool:
@@ -188,6 +196,8 @@ class HA4LinuxVmSwitch(_HA4LinuxBaseSwitch):
 
     @property
     def is_on(self) -> bool:
+        if self._power_override is not None:
+            return self._power_override
         return virtualbox_vm_is_on(self._item())
 
     @property
@@ -205,15 +215,31 @@ class HA4LinuxVmSwitch(_HA4LinuxBaseSwitch):
         }
 
     async def async_turn_on(self, **kwargs) -> None:
+        if virtualbox_vm_is_on(self._item()):
+            self._power_override = None
+            return
+
+        self._power_override = True
+        self.async_write_ha_state()
         result = await self.coordinator.api.virtualbox_action("start", vm_uuid=self._vm_uuid)
         if not result.get("ok", False):
+            self._power_override = None
+            self.async_write_ha_state()
             raise HomeAssistantError(result.get("error", "Unable to start VM"))
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs) -> None:
+        if not virtualbox_vm_is_on(self._item()):
+            self._power_override = None
+            return
+
+        self._power_override = False
+        self.async_write_ha_state()
         action = virtualbox_switch_turn_off_action(self.coordinator.data)
         result = await self.coordinator.api.virtualbox_action(action, vm_uuid=self._vm_uuid)
         if not result.get("ok", False):
+            self._power_override = None
+            self.async_write_ha_state()
             raise HomeAssistantError(result.get("error", f"Unable to execute {action}"))
         await self.coordinator.async_request_refresh()
 
