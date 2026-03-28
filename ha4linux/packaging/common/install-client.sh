@@ -190,22 +190,25 @@ PY
 install_sudoers_policy() {
   local rendered_file
   local readonly_mode_value
-
-  readonly_mode_value="$(_config_readonly_mode)"
-  if [[ "${readonly_mode_value}" == "true" ]] && [[ -f "${SUDOERS_FILE}" ]]; then
-    if command -v visudo >/dev/null 2>&1; then
-      visudo -cf "${SUDOERS_FILE}" >/dev/null
-    fi
-    log "Readonly mode enabled; preserving existing sudoers policy in ${SUDOERS_FILE}"
-    return
-  fi
-
   rendered_file="$(mktemp "${TMPDIR:-/tmp}/ha4linux-sudoers.XXXXXX")"
   render_sudoers_policy "${rendered_file}"
   chmod 440 "${rendered_file}"
 
   if command -v visudo >/dev/null 2>&1; then
     visudo -cf "${rendered_file}" >/dev/null
+  fi
+
+  if [[ -f "${SUDOERS_FILE}" ]] && _existing_sudoers_satisfies_requirements "${SUDOERS_FILE}" "${rendered_file}"; then
+    log "Existing sudoers policy already satisfies requirements; preserving ${SUDOERS_FILE}"
+    rm -f "${rendered_file}"
+    return
+  fi
+
+  readonly_mode_value="$(_config_readonly_mode)"
+  if [[ "${readonly_mode_value}" == "true" ]] && [[ -f "${SUDOERS_FILE}" ]]; then
+    log "Readonly mode enabled; preserving existing sudoers policy in ${SUDOERS_FILE}"
+    rm -f "${rendered_file}"
+    return
   fi
 
   copy_if_different "${rendered_file}" "${SUDOERS_FILE}" 440
@@ -246,6 +249,58 @@ else:
     result = as_bool(config.get("readonly_mode"), False)
 
 print("true" if result else "false")
+PY
+}
+
+_existing_sudoers_satisfies_requirements() {
+  local current_file="$1"
+  local required_file="$2"
+
+  python3 - "${current_file}" "${required_file}" << 'PY'
+import sys
+from pathlib import Path
+
+
+def parse_policy(path: Path):
+    aliases: dict[str, set[str]] = {}
+    grants: set[str] = set()
+    defaults: set[str] = set()
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("Cmnd_Alias "):
+            prefix, _, raw_commands = line.partition("=")
+            name = prefix.replace("Cmnd_Alias", "", 1).strip()
+            commands = {
+                item.strip()
+                for item in raw_commands.split(",")
+                if item.strip()
+            }
+            aliases[name] = commands
+            continue
+        if line.startswith("Defaults:"):
+            defaults.add(line)
+            continue
+        grants.add(line)
+
+    return aliases, grants, defaults
+
+
+current_aliases, current_grants, current_defaults = parse_policy(Path(sys.argv[1]))
+required_aliases, required_grants, required_defaults = parse_policy(Path(sys.argv[2]))
+
+for alias_name, required_commands in required_aliases.items():
+    current_commands = current_aliases.get(alias_name)
+    if current_commands is None or not required_commands.issubset(current_commands):
+        raise SystemExit(1)
+
+if not required_grants.issubset(current_grants):
+    raise SystemExit(1)
+
+if not required_defaults.issubset(current_defaults):
+    raise SystemExit(1)
 PY
 }
 
