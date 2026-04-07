@@ -20,7 +20,7 @@ Manteniendo el enfoque recomendado:
 
 ### 3.1 En cada host Linux (API)
 - `ha4linux.service` (API principal).
-- `ha4linux-update.service` (worker one-shot de actualizacion).
+- Worker transitorio de actualizacion lanzado con `systemd-run` fuera del sandbox de `ha4linux.service`.
 - `ha4linux-update.timer` (comprobacion periodica opcional).
 - `ha4linux-agent` (modulo software en la API) con:
   - chequeo de version objetivo,
@@ -116,6 +116,11 @@ Aplicacion segura:
    - `GET /v1/version`
    - `GET /v1/capabilities`
 7. Si falla, rollback local a version previa y notificacion de error.
+
+Notas de implementacion:
+- La API no debe intentar autoactualizarse dentro de su propio sandbox `systemd`.
+- La unidad base `ha4linux.service` debe mantenerse estable; los cambios evolutivos deben ir en `drop-ins` gestionados para evitar reescrituras fragiles del unit principal.
+- `POST /v1/update/apply` debe pasar por un `preflight` explicito antes de ofrecer o ejecutar la actualizacion.
 
 ## 7. Modelo de configuracion desde HA
 Caso Kodi:

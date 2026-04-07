@@ -144,7 +144,9 @@ class HA4LinuxApiUpdateEntity(_HA4LinuxBaseUpdate):
             "asset_url": status.get("asset_url"),
             "asset_sha256": status.get("asset_sha256"),
             "supports_apply": status.get("supports_apply"),
+            "supports_apply_reason": status.get("supports_apply_reason"),
             "supports_rollback": status.get("supports_rollback"),
+            "preflight": status.get("preflight"),
             "last_checked_at": status.get("last_checked_at"),
             "last_applied_at": status.get("last_applied_at"),
             "error": status.get("error"),
@@ -158,7 +160,12 @@ class HA4LinuxApiUpdateEntity(_HA4LinuxBaseUpdate):
     ) -> None:
         status = self._status()
         if not bool(status.get("supports_apply", False)):
-            raise HomeAssistantError("Remote apply command is not configured on this host")
+            raise HomeAssistantError(
+                str(
+                    status.get("supports_apply_reason")
+                    or "Remote apply command is not configured on this host"
+                )
+            )
 
         check = await self.coordinator.api.update_check()
         if not check.get("ok", False):
