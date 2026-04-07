@@ -149,9 +149,9 @@ Formato minimo de manifest para update remoto con instalacion:
 
 ```json
 {
-  "version": "0.5.8",
-  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.8",
-  "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.8.tar.gz",
+  "version": "0.5.9",
+  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.9",
+  "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.9.tar.gz",
   "sha256": "..."
 }
 ```
@@ -162,9 +162,9 @@ Tambien se admite formato por canales:
 {
   "channels": {
     "stable": {
-      "version": "0.5.8",
-      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.8",
-      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.8.tar.gz",
+      "version": "0.5.9",
+      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.9",
+      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.9.tar.gz",
       "sha256": "..."
     }
   }
@@ -194,6 +194,7 @@ Preflight de update remoto:
 - Antes de exponer `supports_apply=true`, la API valida prerequisitos operativos.
 - Si el host esta arrancado sobre un snapshot Btrfs, si `/` no es escribible o si no existe `systemd-run`, la API bloquea el `apply` y expone el motivo.
 - La actualizacion ya no reescribe de forma ciega `ha4linux.service`; el unit base se preserva y la evolucion del servicio se gestiona mediante el drop-in administrado.
+- Compatibilidad heredada: si un host `0.5.6/0.5.7` ejecuta el instalador desde el sandbox antiguo y no puede escribir en `/etc/systemd/system`, el instalador preserva la definicion `systemd` existente y completa el salto a la nueva generacion del updater.
 
 Para `modules.virtualbox.enabled=true` con `modules.virtualbox.user` distinto de `ha4linux`,
 el instalador deja configurada una regla `sudoers` para `VBoxManage` limitada a:
@@ -228,7 +229,7 @@ Requisitos de build: `dpkg-deb`, `jq`.
 ```bash
 cd /ruta/ha-addons/ha4linux
 ./packaging/scripts/build-deb.sh
-sudo dpkg -i ./packaging/ha4linux-client_0.5.8_$(dpkg --print-architecture).deb
+sudo dpkg -i ./packaging/ha4linux-client_0.5.9_$(dpkg --print-architecture).deb
 ```
 
 ### Red Hat / openSUSE (.rpm)

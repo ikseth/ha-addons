@@ -70,6 +70,23 @@ copy_if_different() {
   rm -f "${tmp_file}"
 }
 
+path_is_writable_or_creatable() {
+  local target="$1"
+  local probe="$target"
+
+  if [[ -e "${probe}" ]]; then
+    [[ -w "${probe}" ]]
+    return
+  fi
+
+  probe="$(dirname "${probe}")"
+  while [[ "${probe}" != "/" && ! -e "${probe}" ]]; do
+    probe="$(dirname "${probe}")"
+  done
+
+  [[ -w "${probe}" ]]
+}
+
 render_sudoers_policy() {
   local destination="$1"
   local selected_config="${config_file:-${HA4LINUX_CONFIG_FILE:-${CONFIG_FILE_DEFAULT}}}"
@@ -650,6 +667,14 @@ setup_venv() {
 }
 
 install_service_definition() {
+  if ! path_is_writable_or_creatable "${SERVICE_FILE}" || ! path_is_writable_or_creatable "${SERVICE_DROPIN_TARGET}"; then
+    if [[ -f "${SERVICE_FILE}" ]]; then
+      log "Systemd service definition is not writable in this execution context; preserving existing unit and drop-ins"
+      return
+    fi
+    fail "Cannot install systemd unit in ${SERVICE_FILE}: path is not writable"
+  fi
+
   if [[ ! -f "${SERVICE_FILE}" ]]; then
     copy_if_different "${SERVICE_SRC}" "${SERVICE_FILE}" 644
     log "Installed base systemd unit in ${SERVICE_FILE}"

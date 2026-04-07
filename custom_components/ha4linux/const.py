@@ -1,5 +1,5 @@
 DOMAIN = "ha4linux"
-INTEGRATION_VERSION = "0.5.8"
+INTEGRATION_VERSION = "0.5.9"
 
 CONF_HOST = "host"
 CONF_PORT = "port"
