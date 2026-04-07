@@ -7,12 +7,15 @@ HA4LINUX_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 APP_SRC="${HA4LINUX_ROOT}/app"
 REQ_SRC="${HA4LINUX_ROOT}/requirements.txt"
 SERVICE_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux.service"
+SERVICE_DROPIN_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux.service.d/10-ha4linux-managed.conf"
 CONFIG_EXAMPLE_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux.config.example.json"
 SUDOERS_SRC="${HA4LINUX_ROOT}/packaging/assets/sudoers.ha4linux"
 UPDATE_APPLY_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-apply"
 UPDATE_ROLLBACK_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-rollback"
 UPDATE_APPLY_ROOT_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-apply-root.py"
 UPDATE_ROLLBACK_ROOT_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-rollback-root.py"
+UPDATE_APPLY_WORKER_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-apply-worker.py"
+UPDATE_ROLLBACK_WORKER_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-rollback-worker.py"
 
 INSTALL_DIR="/opt/ha4linux"
 UPDATE_DIR="${INSTALL_DIR}/update"
@@ -23,11 +26,15 @@ POLICY_FILE="/etc/ha4linux/policies/apps.json"
 CONFIG_FILE_DEFAULT="/etc/ha4linux/config.json"
 ENV_FILE="/etc/ha4linux/ha4linux.env"
 SERVICE_FILE="/etc/systemd/system/ha4linux.service"
+SERVICE_DROPIN_DIR="/etc/systemd/system/ha4linux.service.d"
+SERVICE_DROPIN_TARGET="${SERVICE_DROPIN_DIR}/10-ha4linux-managed.conf"
 SUDOERS_FILE="/etc/sudoers.d/ha4linux"
 UPDATE_APPLY_TARGET="${UPDATE_DIR}/ha4linux-update-apply"
 UPDATE_ROLLBACK_TARGET="${UPDATE_DIR}/ha4linux-update-rollback"
 UPDATE_APPLY_ROOT_TARGET="${UPDATE_DIR}/ha4linux-update-apply-root.py"
 UPDATE_ROLLBACK_ROOT_TARGET="${UPDATE_DIR}/ha4linux-update-rollback-root.py"
+UPDATE_APPLY_WORKER_TARGET="${UPDATE_DIR}/ha4linux-update-apply-worker.py"
+UPDATE_ROLLBACK_WORKER_TARGET="${UPDATE_DIR}/ha4linux-update-rollback-worker.py"
 LOG_DIR="/var/log/ha4linux"
 DATA_DIR="/var/lib/ha4linux"
 SKIP_DEPS=false
@@ -546,6 +553,9 @@ install_files() {
   [[ -f "${UPDATE_ROLLBACK_SRC}" ]] || fail "update rollback helper not found"
   [[ -f "${UPDATE_APPLY_ROOT_SRC}" ]] || fail "root update apply helper not found"
   [[ -f "${UPDATE_ROLLBACK_ROOT_SRC}" ]] || fail "root update rollback helper not found"
+  [[ -f "${SERVICE_DROPIN_SRC}" ]] || fail "managed service drop-in not found"
+  [[ -f "${UPDATE_APPLY_WORKER_SRC}" ]] || fail "update apply worker not found"
+  [[ -f "${UPDATE_ROLLBACK_WORKER_SRC}" ]] || fail "update rollback worker not found"
 
   mkdir -p "${INSTALL_DIR}" "${UPDATE_DIR}" "${ETC_DIR}" "${CERT_DIR}" "${POLICY_DIR}" "${LOG_DIR}" "${DATA_DIR}"
   chown root:ha4linux "${POLICY_DIR}"
@@ -559,6 +569,8 @@ install_files() {
   install -m 755 "${UPDATE_ROLLBACK_SRC}" "${UPDATE_ROLLBACK_TARGET}"
   install -m 755 "${UPDATE_APPLY_ROOT_SRC}" "${UPDATE_APPLY_ROOT_TARGET}"
   install -m 755 "${UPDATE_ROLLBACK_ROOT_SRC}" "${UPDATE_ROLLBACK_ROOT_TARGET}"
+  install -m 755 "${UPDATE_APPLY_WORKER_SRC}" "${UPDATE_APPLY_WORKER_TARGET}"
+  install -m 755 "${UPDATE_ROLLBACK_WORKER_SRC}" "${UPDATE_ROLLBACK_WORKER_TARGET}"
 
   chown -R root:root "${INSTALL_DIR}"
   chown -R ha4linux:ha4linux "${LOG_DIR}" "${DATA_DIR}"
@@ -637,8 +649,19 @@ setup_venv() {
   "${INSTALL_DIR}/.venv/bin/pip" install -r "${INSTALL_DIR}/requirements.txt"
 }
 
+install_service_definition() {
+  if [[ ! -f "${SERVICE_FILE}" ]]; then
+    copy_if_different "${SERVICE_SRC}" "${SERVICE_FILE}" 644
+    log "Installed base systemd unit in ${SERVICE_FILE}"
+  else
+    log "Preserving existing base systemd unit in ${SERVICE_FILE}"
+  fi
+
+  copy_if_different "${SERVICE_DROPIN_SRC}" "${SERVICE_DROPIN_TARGET}" 644
+}
+
 install_service() {
-  copy_if_different "${SERVICE_SRC}" "${SERVICE_FILE}" 644
+  install_service_definition
   install_sudoers_policy
 
   systemctl daemon-reload
@@ -675,7 +698,7 @@ main() {
   if [[ "${START_SERVICE}" == "true" ]]; then
     install_service
   else
-    copy_if_different "${SERVICE_SRC}" "${SERVICE_FILE}" 644
+    install_service_definition
     install_sudoers_policy
     systemctl daemon-reload
     log "Service files installed (not started)"

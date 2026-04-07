@@ -8,6 +8,7 @@ fail() { echo "[ha4linux-uninstall] ERROR: $*" >&2; exit 1; }
 
 systemctl disable --now ha4linux.service >/dev/null 2>&1 || true
 rm -f /etc/systemd/system/ha4linux.service
+rm -rf /etc/systemd/system/ha4linux.service.d
 systemctl daemon-reload
 
 rm -f /etc/sudoers.d/ha4linux

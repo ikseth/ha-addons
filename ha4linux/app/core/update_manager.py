@@ -12,6 +12,8 @@ import urllib.request
 from datetime import datetime, timezone
 from typing import Any
 
+from app.core.update_preflight import evaluate_update_preflight
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -87,11 +89,15 @@ class UpdateManager:
             "error": None,
             "supports_apply": False,
             "supports_rollback": bool(self._rollback_command),
+            "supports_apply_reason": None,
+            "preflight": {},
         }
 
     def status(self) -> dict[str, Any]:
         if self._should_auto_check():
             self.check()
+        else:
+            self._refresh_preflight()
         with self._lock:
             return dict(self._state)
 
@@ -122,6 +128,7 @@ class UpdateManager:
             update_available = target_semver > current_semver
             with self._lock:
                 self._last_check_monotonic = time.monotonic()
+                preflight = self._evaluate_preflight(asset_url=asset_url)
                 self._state.update(
                     {
                         "ok": True,
@@ -135,8 +142,10 @@ class UpdateManager:
                         "last_checked_at": _now_iso(),
                         "last_error": None,
                         "error": None,
-                        "supports_apply": bool(self._apply_command and asset_url),
+                        "supports_apply": bool(self._apply_command and asset_url and preflight["can_apply"]),
                         "supports_rollback": bool(self._rollback_command),
+                        "supports_apply_reason": preflight["reason"],
+                        "preflight": preflight,
                     }
                 )
                 return dict(self._state)
@@ -154,6 +163,11 @@ class UpdateManager:
         current = self.check()
         if not current.get("ok", False):
             return current
+        preflight = current.get("preflight", {})
+        if not bool(preflight.get("can_apply", False)):
+            return self._set_error(
+                str(current.get("supports_apply_reason") or "preflight failed for remote apply")
+            )
 
         selected_version = (target_version or current.get("target_version") or "").strip()
         if not selected_version:
@@ -214,6 +228,10 @@ class UpdateManager:
             return self._set_error("readonly mode enabled: rollback is blocked")
         if not self._rollback_command:
             return self._set_error("rollback command not configured")
+
+        preflight = self._evaluate_preflight(asset_url=str(self._state.get("asset_url") or "").strip())
+        if not bool(preflight.get("can_apply", False)):
+            return self._set_error(str(preflight.get("reason") or "preflight failed for rollback"))
 
         with self._lock:
             self._state["state"] = "rollback"
@@ -304,8 +322,34 @@ class UpdateManager:
                     "state": "error",
                     "last_error": message,
                     "error": message,
-                    "supports_apply": bool(self._apply_command and self._state.get("asset_url")),
+                    "supports_apply": bool(
+                        self._apply_command
+                        and self._state.get("asset_url")
+                        and bool(self._state.get("preflight", {}).get("can_apply", False))
+                    ),
                     "supports_rollback": bool(self._rollback_command),
                 }
             )
             return dict(self._state)
+
+    def _refresh_preflight(self) -> None:
+        with self._lock:
+            asset_url = str(self._state.get("asset_url") or "").strip()
+            preflight = self._evaluate_preflight(asset_url=asset_url)
+            self._state["preflight"] = preflight
+            self._state["supports_apply_reason"] = preflight["reason"]
+            self._state["supports_apply"] = bool(
+                self._apply_command and asset_url and preflight["can_apply"]
+            )
+
+    def _evaluate_preflight(self, *, asset_url: str) -> dict[str, Any]:
+        preflight = evaluate_update_preflight(
+            apply_command=self._apply_command,
+            rollback_command=self._rollback_command,
+        )
+        preflight["asset_available"] = bool(asset_url)
+        if not asset_url and preflight.get("reason") is None:
+            preflight["can_apply"] = False
+            preflight["ok"] = False
+            preflight["reason"] = "update asset URL not available"
+        return preflight

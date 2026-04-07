@@ -12,6 +12,7 @@ Este fichero define las directrices operativas para trabajar en este repositorio
 
 1. No realizar acciones ad hoc rapidas.
 2. Priorizar siempre escalabilidad, resiliencia y modularidad de codigo y arquitectura frente a soluciones rapidas.
-3. Hacer commits a GitHub solo tras confirmar la validez funcional.
-4. Proponer planes y soluciones alternativas antes de aplicar cambios, para validacion previa del usuario.
-5. Si existen puntos criticos inferidos, plantear dudas explicitamente para debatirlas con el usuario antes de decidir.
+3. Orientar por defecto las decisiones a soluciones estrategicas y mantenibles, no tacticas, salvo que exista una justificacion tecnica fuerte y explicita para lo contrario.
+4. Hacer commits a GitHub solo tras confirmar la validez funcional.
+5. Proponer planes y soluciones alternativas antes de aplicar cambios, para validacion previa del usuario.
+6. Si existen puntos criticos inferidos, plantear dudas explicitamente para debatirlas con el usuario antes de decidir.
