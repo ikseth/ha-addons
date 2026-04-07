@@ -149,9 +149,9 @@ Formato minimo de manifest para update remoto con instalacion:
 
 ```json
 {
-  "version": "0.5.9",
-  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.9",
-  "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.9.tar.gz",
+  "version": "0.5.10",
+  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.10",
+  "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.10.tar.gz",
   "sha256": "..."
 }
 ```
@@ -162,9 +162,9 @@ Tambien se admite formato por canales:
 {
   "channels": {
     "stable": {
-      "version": "0.5.9",
-      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.9",
-      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.9.tar.gz",
+      "version": "0.5.10",
+      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.10",
+      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.10.tar.gz",
       "sha256": "..."
     }
   }
@@ -186,7 +186,7 @@ Flujo esperado:
 - HA invoca `/v1/update/apply`
 - El helper root lanza un worker transitorio con `systemd-run`, fuera del sandbox de `ha4linux.service`
 - El host descarga el artefacto desde GitHub, valida `sha256`, crea backup y reinstala
-- `ha4linux.service` se reinicia de forma controlada
+- `ha4linux.service` se reinicia de forma controlada mediante una unidad transitoria diferida gestionada por `systemd`
 - Si la instalacion falla, se restaura el backup automaticamente
 
 Preflight de update remoto:
@@ -229,7 +229,7 @@ Requisitos de build: `dpkg-deb`, `jq`.
 ```bash
 cd /ruta/ha-addons/ha4linux
 ./packaging/scripts/build-deb.sh
-sudo dpkg -i ./packaging/ha4linux-client_0.5.9_$(dpkg --print-architecture).deb
+sudo dpkg -i ./packaging/ha4linux-client_0.5.10_$(dpkg --print-architecture).deb
 ```
 
 ### Red Hat / openSUSE (.rpm)

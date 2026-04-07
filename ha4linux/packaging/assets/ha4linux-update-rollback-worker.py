@@ -64,11 +64,22 @@ def rebuild_virtualenv() -> None:
 
 
 def schedule_service_restart() -> None:
-    subprocess.Popen(
-        ['/bin/sh', '-c', 'sleep 2; systemctl restart ha4linux.service >/dev/null 2>&1'],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
+    unit_name = f"ha4linux-delayed-restart-{int(time.time())}-{os.getpid()}"
+    subprocess.run(
+        [
+            'systemd-run',
+            f'--unit={unit_name}',
+            '--on-active=2',
+            '--collect',
+            '--property=Type=oneshot',
+            '--description=HA4Linux delayed service restart',
+            '/usr/bin/systemctl',
+            'restart',
+            'ha4linux.service',
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
     )
 
 
