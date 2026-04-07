@@ -48,7 +48,19 @@ class HA4LinuxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if isinstance(actuators, list) and "app_policy" in actuators:
                 data["app_policy"] = await self.api.app_policy_status()
 
-            if isinstance(actuators, list) and "virtualbox_manager" in actuators:
+            virtualbox_module = sensors.get("virtualbox", {}) if isinstance(sensors, dict) else {}
+            virtualbox_has_sensor_data = (
+                isinstance(virtualbox_module, dict)
+                and bool(virtualbox_module.get("available", False))
+                and isinstance(virtualbox_module.get("data", {}), dict)
+                and isinstance(virtualbox_module.get("data", {}).get("vms", []), list)
+            )
+
+            if (
+                isinstance(actuators, list)
+                and "virtualbox_manager" in actuators
+                and not virtualbox_has_sensor_data
+            ):
                 data["virtualbox"] = await self.api.virtualbox_status()
 
             return data

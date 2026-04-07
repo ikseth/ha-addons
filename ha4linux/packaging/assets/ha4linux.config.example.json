@@ -28,7 +28,11 @@
     },
     "virtualbox": {
       "enabled": false,
-      "user": ""
+      "user": "",
+      "status_cache_ttl_sec": 30,
+      "status_stale_ttl_sec": 900,
+      "failure_backoff_min_sec": 30,
+      "failure_backoff_max_sec": 300
     },
     "services": {
       "enabled": false,

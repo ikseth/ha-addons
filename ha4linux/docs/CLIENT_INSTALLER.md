@@ -50,6 +50,10 @@ Bloques relevantes del JSON:
 - `actuators.virtualbox.allowed_vms`
 - `actuators.virtualbox.start_type`
 - `actuators.virtualbox.switch_turn_off_action`
+- `modules.virtualbox.status_cache_ttl_sec`
+- `modules.virtualbox.status_stale_ttl_sec`
+- `modules.virtualbox.failure_backoff_min_sec`
+- `modules.virtualbox.failure_backoff_max_sec`
 - `modules.services.enabled`
 - `modules.services.watchlist`
 - `modules.network.include_interfaces`
@@ -85,7 +89,11 @@ Ejemplo:
     },
     "virtualbox": {
       "enabled": true,
-      "user": "ignacio"
+      "user": "ignacio",
+      "status_cache_ttl_sec": 30,
+      "status_stale_ttl_sec": 900,
+      "failure_backoff_min_sec": 30,
+      "failure_backoff_max_sec": 300
     },
     "services": {
       "enabled": true,
@@ -134,14 +142,15 @@ Notas operativas:
 
 - El check de paquetes pendientes se ejecuta en segundo plano y se cachea; no bloquea `GET /v1/sensors`.
 - Hasta completar el primer refresh valido, el host devolvera `updates_state=checking`.
+- El modulo `virtualbox` cachea el inventario de VMs, aplica backoff exponencial y sirve cache estale controlada cuando `VBoxManage` falla, para no degradar Home Assistant.
 
 Formato minimo de manifest para update remoto con instalacion:
 
 ```json
 {
-  "version": "0.5.6",
-  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.6",
-  "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.6.tar.gz",
+  "version": "0.5.7",
+  "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.7",
+  "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.7.tar.gz",
   "sha256": "..."
 }
 ```
@@ -152,9 +161,9 @@ Tambien se admite formato por canales:
 {
   "channels": {
     "stable": {
-      "version": "0.5.6",
-      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.6",
-      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.6.tar.gz",
+      "version": "0.5.7",
+      "changelog_url": "https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v0.5.7",
+      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.7.tar.gz",
       "sha256": "..."
     }
   }
@@ -209,7 +218,7 @@ Requisitos de build: `dpkg-deb`, `jq`.
 ```bash
 cd /ruta/ha-addons/ha4linux
 ./packaging/scripts/build-deb.sh
-sudo dpkg -i ./packaging/ha4linux-client_0.5.6_$(dpkg --print-architecture).deb
+sudo dpkg -i ./packaging/ha4linux-client_0.5.7_$(dpkg --print-architecture).deb
 ```
 
 ### Red Hat / openSUSE (.rpm)

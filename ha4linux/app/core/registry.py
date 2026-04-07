@@ -119,7 +119,13 @@ class ModuleRegistry:
             return None
 
         try:
-            return VirtualBoxClient(user=self.settings.virtualbox_user)
+            return VirtualBoxClient(
+                user=self.settings.virtualbox_user,
+                status_cache_ttl_sec=self.settings.virtualbox_status_cache_ttl_sec,
+                status_stale_ttl_sec=self.settings.virtualbox_status_stale_ttl_sec,
+                failure_backoff_min_sec=self.settings.virtualbox_failure_backoff_min_sec,
+                failure_backoff_max_sec=self.settings.virtualbox_failure_backoff_max_sec,
+            )
         except ValueError as exc:
             LOGGER.info("Skipping virtualbox modules: %s", exc)
             return None

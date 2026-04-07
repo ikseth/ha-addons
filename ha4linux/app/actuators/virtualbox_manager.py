@@ -100,6 +100,7 @@ class VirtualBoxManagerActuator(Actuator):
             process = self.client.control_vm(vm_uuid, control_command)
 
         updated_vm = self.client.resolve_vm(vm_uuid=vm_uuid)
+        self.client.update_cached_vm(updated_vm)
         result = {
             "ok": process.returncode == 0,
             "action": action_key,
@@ -121,8 +122,13 @@ class VirtualBoxManagerActuator(Actuator):
             vm = self._resolve_vm(params)
             return {"ok": True, "vm": vm}
 
-        vms = [vm for vm in self.client.list_vms() if self._is_vm_allowed(vm)]
-        return {"ok": True, "vms": vms, "count": len(vms)}
+        snapshot = self.client.list_vms_snapshot()
+        vms = [vm for vm in snapshot.get("vms", []) if self._is_vm_allowed(vm)]
+        response = {"ok": True, "vms": vms, "count": len(vms)}
+        cache = snapshot.get("cache", {})
+        if isinstance(cache, dict):
+            response["cache"] = cache
+        return response
 
     def _resolve_vm(self, params: dict[str, Any]) -> dict[str, Any]:
         vm = self.client.resolve_vm(
