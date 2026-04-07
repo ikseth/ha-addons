@@ -142,6 +142,10 @@ class Settings:
     virtualbox_allowed_vms: list[str]
     virtualbox_start_type: str
     virtualbox_switch_turn_off_action: str
+    virtualbox_status_cache_ttl_sec: int
+    virtualbox_status_stale_ttl_sec: int
+    virtualbox_failure_backoff_min_sec: int
+    virtualbox_failure_backoff_max_sec: int
     network_include_interfaces: list[str]
     network_exclude_interfaces: list[str]
     network_aggregate_mode: str
@@ -409,6 +413,50 @@ class Settings:
             ),
             "acpi_shutdown",
             {"acpi_shutdown", "savestate", "poweroff"},
+        )
+        self.virtualbox_status_cache_ttl_sec = _as_int(
+            _resolve_value(
+                config,
+                "HA4LINUX_VIRTUALBOX_STATUS_CACHE_TTL_SEC",
+                30,
+                ("modules", "virtualbox", "status_cache_ttl_sec"),
+                ("virtualbox_status_cache_ttl_sec",),
+            ),
+            30,
+            minimum=1,
+        )
+        self.virtualbox_status_stale_ttl_sec = _as_int(
+            _resolve_value(
+                config,
+                "HA4LINUX_VIRTUALBOX_STATUS_STALE_TTL_SEC",
+                900,
+                ("modules", "virtualbox", "status_stale_ttl_sec"),
+                ("virtualbox_status_stale_ttl_sec",),
+            ),
+            900,
+            minimum=self.virtualbox_status_cache_ttl_sec,
+        )
+        self.virtualbox_failure_backoff_min_sec = _as_int(
+            _resolve_value(
+                config,
+                "HA4LINUX_VIRTUALBOX_FAILURE_BACKOFF_MIN_SEC",
+                30,
+                ("modules", "virtualbox", "failure_backoff_min_sec"),
+                ("virtualbox_failure_backoff_min_sec",),
+            ),
+            30,
+            minimum=1,
+        )
+        self.virtualbox_failure_backoff_max_sec = _as_int(
+            _resolve_value(
+                config,
+                "HA4LINUX_VIRTUALBOX_FAILURE_BACKOFF_MAX_SEC",
+                300,
+                ("modules", "virtualbox", "failure_backoff_max_sec"),
+                ("virtualbox_failure_backoff_max_sec",),
+            ),
+            300,
+            minimum=self.virtualbox_failure_backoff_min_sec,
         )
         self.network_include_interfaces = _as_csv(
             _resolve_value(
