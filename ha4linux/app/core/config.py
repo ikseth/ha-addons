@@ -135,8 +135,10 @@ class Settings:
     actuator_session: bool
     actuator_app_policy: bool
     actuator_virtualbox: bool
+    actuator_message: bool
     readonly_mode: bool
     allowed_session_users: set[str]
+    message_allowed_targets: list[str]
     virtualbox_user: str
     virtualbox_allowed_actions: list[str]
     virtualbox_allowed_vms: list[str]
@@ -363,6 +365,25 @@ class Settings:
                 ("actuator_virtualbox",),
             ),
             False,
+        )
+        self.actuator_message = _as_bool(
+            _resolve_value(
+                config,
+                "HA4LINUX_ACTUATOR_MESSAGE",
+                True,
+                ("actuators", "message", "enabled"),
+                ("actuator_message",),
+            ),
+            True,
+        )
+        self.message_allowed_targets = _as_csv(
+            _resolve_value(
+                config,
+                "HA4LINUX_MESSAGE_ALLOWED_TARGETS",
+                ["broadcast"],
+                ("actuators", "message", "allowed_targets"),
+                ("message_allowed_targets",),
+            )
         )
         self.virtualbox_user = _as_str(
             _resolve_value(

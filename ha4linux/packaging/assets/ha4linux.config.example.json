@@ -104,6 +104,12 @@
     "app_policy": {
       "enabled": true
     },
+    "message": {
+      "enabled": true,
+      "allowed_targets": [
+        "broadcast"
+      ]
+    },
     "virtualbox": {
       "enabled": false,
       "allowed_actions": [

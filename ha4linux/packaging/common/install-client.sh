@@ -16,6 +16,7 @@ UPDATE_APPLY_ROOT_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-apply-r
 UPDATE_ROLLBACK_ROOT_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-rollback-root.py"
 UPDATE_APPLY_WORKER_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-apply-worker.py"
 UPDATE_ROLLBACK_WORKER_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-rollback-worker.py"
+MESSAGE_ROOT_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-message-root.py"
 
 INSTALL_DIR="/opt/ha4linux"
 UPDATE_DIR="${INSTALL_DIR}/update"
@@ -35,6 +36,7 @@ UPDATE_APPLY_ROOT_TARGET="${UPDATE_DIR}/ha4linux-update-apply-root.py"
 UPDATE_ROLLBACK_ROOT_TARGET="${UPDATE_DIR}/ha4linux-update-rollback-root.py"
 UPDATE_APPLY_WORKER_TARGET="${UPDATE_DIR}/ha4linux-update-apply-worker.py"
 UPDATE_ROLLBACK_WORKER_TARGET="${UPDATE_DIR}/ha4linux-update-rollback-worker.py"
+MESSAGE_ROOT_TARGET="${INSTALL_DIR}/ha4linux-message-root.py"
 LOG_DIR="/var/log/ha4linux"
 DATA_DIR="/var/lib/ha4linux"
 SKIP_DEPS=false
@@ -199,8 +201,10 @@ if virtualbox_enabled:
 lines.append(
     "Cmnd_Alias HA4LINUX_UPDATE = /opt/ha4linux/update/ha4linux-update-apply-root.py, /opt/ha4linux/update/ha4linux-update-rollback-root.py"
 )
+lines.append("Cmnd_Alias HA4LINUX_MESSAGE = /opt/ha4linux/ha4linux-message-root.py")
 lines.append("ha4linux ALL=(root) NOPASSWD: HA4LINUX_SESSION, HA4LINUX_APPS")
 lines.append("ha4linux ALL=(root) NOPASSWD: HA4LINUX_UPDATE")
+lines.append("ha4linux ALL=(root) NOPASSWD: HA4LINUX_MESSAGE")
 
 if virtualbox_enabled:
     lines.append("ha4linux ALL=(ALL) NOPASSWD: HA4LINUX_VBOX")
@@ -458,6 +462,15 @@ virtualbox_actuator["switch_turn_off_action"] = prefer_env_string(
     str(virtualbox_actuator.get("switch_turn_off_action", "acpi_shutdown")),
 )
 
+message_actuator = actuators.setdefault("message", {})
+message_actuator["enabled"] = as_bool(env.get("HA4LINUX_ACTUATOR_MESSAGE"), True)
+message_actuator["allowed_targets"] = as_csv(
+    env.get(
+        "HA4LINUX_MESSAGE_ALLOWED_TARGETS",
+        ",".join(message_actuator.get("allowed_targets", [])),
+    )
+)
+
 app_policies = template.setdefault("app_policies", {})
 app_policies["file"] = env.get("HA4LINUX_APP_POLICY_FILE", app_policies.get("file", "/etc/ha4linux/policies/apps.json"))
 app_policies["use_sudo_kill"] = as_bool(
@@ -573,6 +586,7 @@ install_files() {
   [[ -f "${SERVICE_DROPIN_SRC}" ]] || fail "managed service drop-in not found"
   [[ -f "${UPDATE_APPLY_WORKER_SRC}" ]] || fail "update apply worker not found"
   [[ -f "${UPDATE_ROLLBACK_WORKER_SRC}" ]] || fail "update rollback worker not found"
+  [[ -f "${MESSAGE_ROOT_SRC}" ]] || fail "message root helper not found"
 
   mkdir -p "${INSTALL_DIR}" "${UPDATE_DIR}" "${ETC_DIR}" "${CERT_DIR}" "${POLICY_DIR}" "${LOG_DIR}" "${DATA_DIR}"
   chown root:ha4linux "${POLICY_DIR}"
@@ -588,6 +602,7 @@ install_files() {
   install -m 755 "${UPDATE_ROLLBACK_ROOT_SRC}" "${UPDATE_ROLLBACK_ROOT_TARGET}"
   install -m 755 "${UPDATE_APPLY_WORKER_SRC}" "${UPDATE_APPLY_WORKER_TARGET}"
   install -m 755 "${UPDATE_ROLLBACK_WORKER_SRC}" "${UPDATE_ROLLBACK_WORKER_TARGET}"
+  install -m 755 "${MESSAGE_ROOT_SRC}" "${MESSAGE_ROOT_TARGET}"
 
   chown -R root:root "${INSTALL_DIR}"
   chown -R ha4linux:ha4linux "${LOG_DIR}" "${DATA_DIR}"

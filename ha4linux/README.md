@@ -4,7 +4,7 @@ Add-on modular para Home Assistant orientado a monitorizacion y control operativ
 
 ## Estado actual
 
-Version funcional `0.5.10` con:
+Version funcional `0.5.11` con:
 
 - Sensores base: `cpu_load`, `memory`, `network`.
 - Sensores de infraestructura: `raid_mdstat`, `virtualbox`, `services`.
@@ -13,6 +13,7 @@ Version funcional `0.5.10` con:
 - Sensor modular de politicas de apps: `app_policies`.
 - Actuador de sesion grafica: `session_manager` (`status`, `activate`, `terminate`).
 - Actuador modular de politicas de apps: `app_policy` (`status`, `allow`, `block`, `enforce`, `reload`).
+- Actuador de mensajeria: `message_dispatcher` (`send`) con rutas configurables `broadcast` y `x11`.
 - Actuador de VirtualBox: `virtualbox_manager` (`status`, `start`, `acpi_shutdown`, `savestate`, con acciones peligrosas opt-in).
 - Robustez de VirtualBox: cache de estado, backoff exponencial y circuit breaker para evitar que un `VBoxManage` degradado arrastre el poll de HA.
 - Gestion remota de actualizaciones (opcional y desactivada por defecto): `/v1/update/*`.
@@ -26,7 +27,7 @@ Version funcional `0.5.10` con:
 
 - Un host Linux = `device`.
 - Sensores = entidades de telemetria.
-- Actuadores = entidades tipo switch/button para acciones controladas.
+- Actuadores = entidades tipo switch/button o servicios cuando la accion requiere payload libre.
 
 ## Control de apps (declarativo)
 
@@ -84,6 +85,7 @@ Semantica:
 - `POST /v1/actuators/app_policy/block`
 - `POST /v1/actuators/app_policy/enforce`
 - `POST /v1/actuators/app_policy/reload`
+- `POST /v1/actuators/message_dispatcher/send`
 - `POST /v1/actuators/virtualbox_manager/status`
 - `POST /v1/actuators/virtualbox_manager/start`
 - `POST /v1/actuators/virtualbox_manager/acpi_shutdown`
@@ -138,6 +140,18 @@ Con filtros configurables:
 - Seleccion declarativa de interfaces via `include_interfaces` y `exclude_interfaces`.
 - Modo de agregado `selected|all` para decidir si el resumen usa solo las interfaces elegidas o todas las disponibles.
 
+`message_dispatcher` acepta payload JSON con:
+
+- `message` requerido
+- `title` opcional
+- `targets` opcional (`broadcast`, `x11`)
+
+Semantica de entrega:
+
+- `broadcast`: usa `wall`.
+- `x11`: intenta `notify-send` sobre sesiones graficas activas y cae a `xmessage` si existe X11 pero no hay daemon de notificaciones disponible.
+- Si hay varias sesiones graficas activas, la entrega se intenta en todas.
+
 ## Modelo de configuracion
 
 En cliente Linux la configuracion principal pasa a ser JSON estructurado en:
@@ -172,11 +186,17 @@ ha4linux ALL=(root) NOPASSWD: HA4LINUX_APPS
 Defaults:ha4linux !requiretty
 ```
 
+### Mensajeria X11
+
+La ruta `x11` usa un helper local con privilegios para inspeccionar sesiones graficas y ejecutar la entrega con el usuario de escritorio correspondiente. El instalador cliente copia este helper y ajusta `sudoers` automaticamente.
+
 ## Notas de despliegue
 
 - Si `tls_enabled=true`, los ficheros de certificado deben existir.
 - En Home Assistant Add-on se mapea `/ssl` de solo lectura para usar certificados del sistema.
 - El control de sesiones depende de disponer de `loginctl` y permisos de sistema adecuados en el entorno donde corra el API.
+- La mensajeria `broadcast` depende de `wall`.
+- La mensajeria `x11` requiere `loginctl` y al menos una de estas utilidades en el host Linux: `notify-send` o `xmessage`.
 
 ## Instalador Linux cliente
 

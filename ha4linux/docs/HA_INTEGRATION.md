@@ -58,6 +58,10 @@ Entidad `update` (si el host expone `/v1/update/status` y `enabled=true`):
 
 - `HA4Linux API` (instalar update desde HA)
 
+Entidad `update` adicional para la propia integracion custom:
+
+- `HA4Linux Integration` (deteccion de nueva version publicada en el repositorio GitHub de origen)
+
 Sensores dinamicos por recurso (si el modulo esta disponible):
 
 - RAID `<mdX>` (estado y atributos de discos).
@@ -97,6 +101,10 @@ Buttons dinamicos por VM (si `virtualbox_manager` los permite):
 - VM `<name>` Force Power Off
 - VM `<name>` Reset
 
+Servicio registrado por la integracion:
+
+- `ha4linux.send_message`
+
 `ON` intenta activar sesion grafica.
 `OFF` intenta terminar sesion grafica activa.
 
@@ -104,6 +112,44 @@ En switches de apps:
 
 - `ON` => `allow` (permitir app)
 - `OFF` => `block` (bloquear app)
+
+## Servicio `ha4linux.send_message`
+
+Permite enviar mensajes arbitrarios a uno o varios hosts HA4Linux sin crear nuevas entidades.
+
+Campos soportados:
+
+- `message` obligatorio
+- `title` opcional
+- `delivery` opcional (`broadcast`, `x11`)
+- `host` opcional
+- `entry_id` opcional
+- `device_id` / `entity_id` opcionales via target del servicio
+
+Resolucion de destino:
+
+- Si usas target sobre dispositivo o entidad, el servicio resuelve automaticamente el host HA4Linux asociado.
+- Si no indicas target ni `host`/`entry_id`, la llamada se envia a todas las entradas HA4Linux cargadas.
+
+Ejemplo de automatizacion:
+
+```yaml
+action:
+  - service: ha4linux.send_message
+    target:
+      device_id:
+        - 0123456789abcdef0123456789abcdef
+    data:
+      title: Home Assistant
+      message: Mantenimiento programado en 10 minutos.
+      delivery:
+        - broadcast
+```
+
+Notas:
+
+- La integracion delega la entrega real en el actuator remoto `message_dispatcher`.
+- Un host antiguo que no exponga este actuator devolvera error de servicio para ese destino.
 
 ## Opciones
 
@@ -120,6 +166,16 @@ Notas de update remoto:
 
 - La comprobacion de disponibilidad de nuevas versiones la gobierna el host API (`HA4LINUX_REMOTE_UPDATE_CHECK_INTERVAL_SEC`).
 - La accion de instalar desde la entidad `update` ejecuta `POST /v1/update/check` y `POST /v1/update/apply`.
+
+Notas de update de la integracion custom:
+
+- La integracion consulta `custom_components/ha4linux/update-manifest.json` en el repositorio GitHub origen.
+- No depende de HACS.
+- Esta entidad es informativa: detecta y propone la actualizacion de la integracion, pero no reescribe automaticamente `/config/custom_components/ha4linux`.
+- Para publicar una nueva version detectable debes actualizar estos ficheros del componente:
+  - `custom_components/ha4linux/const.py`
+  - `custom_components/ha4linux/manifest.json`
+  - `custom_components/ha4linux/update-manifest.json`
 
 Notas de updates del sistema:
 

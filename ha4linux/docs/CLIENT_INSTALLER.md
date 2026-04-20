@@ -31,7 +31,7 @@ Esto realiza:
   - Se crea vacio por defecto (`{\"apps\": []}`); anade solo las apps que quieras controlar.
 - Servicio `systemd` `ha4linux.service`
 - Drop-in gestionado en `/etc/systemd/system/ha4linux.service.d/10-ha4linux-managed.conf`
-- Politica `sudoers` limitada para `loginctl`, `systemctl/kill`, updates y `VBoxManage`
+- Politica `sudoers` limitada para `loginctl`, `systemctl/kill`, mensajeria X11, updates y `VBoxManage`
 
 ## Ajustes post-instalacion
 
@@ -47,6 +47,8 @@ Bloques relevantes del JSON:
 - `modules.virtualbox.enabled`
 - `modules.virtualbox.user`
 - `actuators.virtualbox.enabled`
+- `actuators.message.enabled`
+- `actuators.message.allowed_targets`
 - `actuators.virtualbox.allowed_actions`
 - `actuators.virtualbox.allowed_vms`
 - `actuators.virtualbox.start_type`
@@ -102,6 +104,10 @@ Ejemplo:
     }
   },
   "actuators": {
+    "message": {
+      "enabled": true,
+      "allowed_targets": ["broadcast", "x11"]
+    },
     "virtualbox": {
       "enabled": true,
       "allowed_actions": ["start", "acpi_shutdown", "savestate"],
@@ -139,11 +145,18 @@ Variables de updates del sistema:
 - `HA4LINUX_SYSTEM_UPDATES_COMMAND_TIMEOUT_SEC=60`
 - `HA4LINUX_SYSTEM_UPDATES_MAX_PACKAGES=25`
 
+Variables de mensajeria:
+
+- `HA4LINUX_ACTUATOR_MESSAGE=true|false`
+- `HA4LINUX_MESSAGE_ALLOWED_TARGETS=broadcast,x11`
+
 Notas operativas:
 
 - El check de paquetes pendientes se ejecuta en segundo plano y se cachea; no bloquea `GET /v1/sensors`.
 - Hasta completar el primer refresh valido, el host devolvera `updates_state=checking`.
 - El modulo `virtualbox` cachea el inventario de VMs, aplica backoff exponencial y sirve cache estale controlada cuando `VBoxManage` falla, para no degradar Home Assistant.
+- La mensajeria `broadcast` usa `wall`.
+- La mensajeria `x11` necesita `loginctl` y al menos `notify-send` o `xmessage` instalados en el host destino.
 
 Formato minimo de manifest para update remoto con instalacion:
 
@@ -173,6 +186,7 @@ Tambien se admite formato por canales:
 
 El instalador cliente deja preparados por defecto los helpers:
 
+- `/opt/ha4linux/ha4linux-message-root.py`
 - `/opt/ha4linux/update/ha4linux-update-apply`
 - `/opt/ha4linux/update/ha4linux-update-rollback`
 - `/opt/ha4linux/update/ha4linux-update-apply-root.py`
