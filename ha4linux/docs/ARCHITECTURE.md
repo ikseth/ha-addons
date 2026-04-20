@@ -10,7 +10,7 @@
 
 - Linux host se modela como un `device` en Home Assistant.
 - Cada sensor se mapea a una entidad de tipo sensor.
-- Cada actuador se mapea a entidades de accion (switch/button).
+- Cada actuador se mapea a entidades de accion o a servicios cuando necesita payload libre.
 
 ## Contrato de modulo
 
@@ -41,6 +41,7 @@
 
 - `session_manager`: `status`, `activate`, `terminate` sobre sesiones graficas (`x11`/`wayland`).
 - `app_policy`: `status`, `allow`, `block`, `enforce`, `reload` para control generico de apps.
+- `message_dispatcher`: `send` para mensajeria remota por `broadcast` y/o `x11`.
 - `virtualbox_manager`: acciones por VM (`start`, `acpi_shutdown`, `savestate`; `poweroff/reset` solo si se habilitan).
 
 ## Politicas de aplicaciones
@@ -60,6 +61,7 @@ Fuente declarativa en fichero JSON (`HA4LINUX_APP_POLICY_FILE`), con estructura:
 - TLS configurable para transporte seguro.
 - Operaciones sensibles mediante `sudo -n` y politica de `sudoers` restringida.
 - Allowlist opcional de usuarios de sesion (`allowed_session_users`).
+- Entrega `x11` encapsulada en un helper root local para inspeccionar sesion y ejecutar `notify-send`/`xmessage` con el usuario grafico correcto.
 - Allowlist opcional de VMs y acciones para VirtualBox (`actuators.virtualbox.*`).
 
 ## Configuracion

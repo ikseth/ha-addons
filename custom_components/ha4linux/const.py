@@ -1,5 +1,10 @@
 DOMAIN = "ha4linux"
-INTEGRATION_VERSION = "0.5.10"
+INTEGRATION_VERSION = "0.5.11"
+INTEGRATION_REPOSITORY_URL = "https://github.com/ikseth/ha-addons/tree/main/custom_components/ha4linux"
+INTEGRATION_DOWNLOAD_URL = "https://github.com/ikseth/ha-addons/archive/refs/heads/main.zip"
+INTEGRATION_UPDATE_MANIFEST_URL = (
+    "https://raw.githubusercontent.com/ikseth/ha-addons/main/custom_components/ha4linux/update-manifest.json"
+)
 
 CONF_HOST = "host"
 CONF_PORT = "port"

@@ -230,3 +230,22 @@ class HA4LinuxApiClient:
             payload=payload,
             timeout_seconds=60,
         )
+
+    async def message_send(
+        self,
+        message: str,
+        *,
+        title: str | None = None,
+        targets: list[str] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"message": message}
+        if title:
+            payload["title"] = title
+        if targets:
+            payload["targets"] = targets
+        return await self.actuator_action(
+            "message_dispatcher",
+            "send",
+            payload=payload,
+            timeout_seconds=30,
+        )

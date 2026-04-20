@@ -1,0 +1,42 @@
+send_message:
+  name: Send message
+  description: Send a message to one or more HA4Linux hosts.
+  target:
+    device:
+      integration: ha4linux
+    entity:
+      integration: ha4linux
+  fields:
+    message:
+      name: Message
+      description: Message body to deliver through the remote HA4Linux API.
+      required: true
+      example: "Scheduled maintenance starts in 10 minutes."
+      selector:
+        text:
+          multiline: true
+    title:
+      name: Title
+      description: Optional message title shown by the remote delivery method.
+      example: "Home Assistant"
+      selector:
+        text:
+    delivery:
+      name: Delivery
+      description: Optional delivery routes allowed by the target host configuration.
+      example:
+        - broadcast
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: Broadcast
+              value: broadcast
+            - label: X11
+              value: x11
+    host:
+      name: Host
+      description: Optional host override when no device or entity target is selected.
+      example: 192.168.50.40
+      selector:
+        text:

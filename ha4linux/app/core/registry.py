@@ -4,6 +4,7 @@ from typing import Any
 
 from app.actuators.app_policy import AppPolicyActuator
 from app.actuators.base import Actuator
+from app.actuators.message_dispatcher import MessageDispatcherActuator
 from app.actuators.session_manager import SessionManagerActuator
 from app.actuators.virtualbox_manager import VirtualBoxManagerActuator
 from app.core.app_policy_manager import AppPolicyManager
@@ -107,6 +108,22 @@ class ModuleRegistry:
             self.actuators[SessionManagerActuator.id] = SessionManagerActuator(
                 allowed_users=self.settings.allowed_session_users,
             )
+
+        if self.settings.actuator_message and not self.settings.readonly_mode:
+            try:
+                message_dispatcher = MessageDispatcherActuator(
+                    allowed_targets=self.settings.message_allowed_targets,
+                )
+            except ValueError as exc:
+                LOGGER.info("Skipping actuator '%s': %s", MessageDispatcherActuator.id, exc)
+            else:
+                if message_dispatcher.available_targets:
+                    self.actuators[MessageDispatcherActuator.id] = message_dispatcher
+                else:
+                    LOGGER.info(
+                        "Skipping actuator '%s': no delivery targets available",
+                        MessageDispatcherActuator.id,
+                    )
 
         if self.settings.readonly_mode:
             LOGGER.info("Readonly mode enabled: actuator modules are disabled")
