@@ -10,7 +10,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional, Tuple
 
 from app.core.update_preflight import evaluate_update_preflight
 
@@ -19,7 +19,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _parse_semver(raw: str) -> tuple[int, int, int] | None:
+def _parse_semver(raw: str) -> Optional[Tuple[int, int, int]]:
     token = raw.strip().lower()
     if not token:
         return None
@@ -152,7 +152,7 @@ class UpdateManager:
         except Exception as exc:
             return self._set_error(str(exc))
 
-    def apply(self, target_version: str | None = None) -> dict[str, Any]:
+    def apply(self, target_version: Optional[str] = None) -> dict[str, Any]:
         if not self._enabled:
             return self._set_error("remote update disabled by configuration")
         if self._readonly_mode and not self._allow_in_readonly:

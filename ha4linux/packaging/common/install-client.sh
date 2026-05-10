@@ -341,20 +341,20 @@ import sys
 from pathlib import Path
 
 
-def as_bool(value: str | None, default: bool) -> bool:
+def as_bool(value, default: bool) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def as_int(value: str | None, default: int) -> int:
+def as_int(value, default: int) -> int:
     try:
         return int(value) if value is not None else default
     except (TypeError, ValueError):
         return default
 
 
-def as_csv(value: str | None) -> list[str]:
+def as_csv(value) -> list[str]:
     if value is None:
         return []
     return [item.strip() for item in value.split(",") if item.strip()]

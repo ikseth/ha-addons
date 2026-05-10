@@ -4,7 +4,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 def evaluate_update_preflight(
@@ -14,7 +14,7 @@ def evaluate_update_preflight(
 ) -> dict[str, Any]:
     checks: dict[str, Any] = {}
     warnings: list[str] = []
-    reason: str | None = None
+    reason: Optional[str] = None
 
     apply_path = Path(apply_command).expanduser() if apply_command else None
     rollback_path = Path(rollback_command).expanduser() if rollback_command else None

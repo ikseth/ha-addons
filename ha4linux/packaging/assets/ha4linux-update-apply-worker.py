@@ -12,6 +12,7 @@ import tempfile
 import time
 import urllib.request
 from pathlib import Path
+from typing import Optional
 
 DATA_DIR = Path('/var/lib/ha4linux')
 REQUEST_FILE = DATA_DIR / 'update-request.json'
@@ -261,7 +262,7 @@ def apply_update(request: dict[str, str]) -> Path:
 def main() -> None:
     require_root()
     request = read_request()
-    backup_dir: Path | None = None
+    backup_dir: Optional[Path] = None
 
     try:
         backup_dir = apply_update(request)

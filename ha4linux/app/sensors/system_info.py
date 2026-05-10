@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from app.sensors.base import Sensor
 
@@ -48,7 +48,7 @@ def _preferred_distribution(os_release: dict[str, str]) -> str:
     return "Linux"
 
 
-def _distribution_codename(os_release: dict[str, str]) -> str | None:
+def _distribution_codename(os_release: dict[str, str]) -> Optional[str]:
     for key in ("VERSION_CODENAME", "UBUNTU_CODENAME"):
         token = str(os_release.get(key, "")).strip()
         if token:
@@ -358,7 +358,7 @@ class SystemInfoSensor(Sensor):
             "updates_packages_truncated": len(packages) > self._updates_max_packages,
         }
 
-    def _error_updates_state(self, *, message: str, error: str | None = None) -> dict[str, Any]:
+    def _error_updates_state(self, *, message: str, error: Optional[str] = None) -> dict[str, Any]:
         return {
             **self._initial_updates_state(),
             "updates_state": "error",
@@ -385,7 +385,7 @@ class SystemInfoSensor(Sensor):
         }
 
     @classmethod
-    def _select_update_command(cls, os_release: dict[str, str]) -> _UpdateCommand | None:
+    def _select_update_command(cls, os_release: dict[str, str]) -> Optional[_UpdateCommand]:
         distro_id = str(os_release.get("ID", "")).strip().lower()
         distro_like = {
             item.strip().lower()

@@ -4,7 +4,7 @@ Add-on modular para Home Assistant orientado a monitorizacion y control operativ
 
 ## Estado actual
 
-Version funcional `0.5.11` con:
+Version funcional `0.5.12` con:
 
 - Sensores base: `cpu_load`, `memory`, `network`.
 - Sensores de infraestructura: `raid_mdstat`, `virtualbox`, `services`.

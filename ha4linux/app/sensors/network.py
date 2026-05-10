@@ -1,6 +1,6 @@
 import time
 from fnmatch import fnmatchcase
-from typing import Any
+from typing import Any, Optional, Union
 
 from app.sensors.base import Sensor
 
@@ -13,16 +13,16 @@ class NetworkSensor(Sensor):
     def __init__(
         self,
         *,
-        include_interfaces: list[str] | None = None,
-        exclude_interfaces: list[str] | None = None,
+        include_interfaces: Optional[list[str]] = None,
+        exclude_interfaces: Optional[list[str]] = None,
         aggregate_mode: str = "selected",
     ) -> None:
         self._include_interfaces = [item for item in (include_interfaces or []) if item]
         self._exclude_interfaces = [item for item in (exclude_interfaces or []) if item]
         self._aggregate_mode = aggregate_mode if aggregate_mode in {"selected", "all"} else "selected"
         self._last_interface_totals: dict[str, tuple[int, int]] = {}
-        self._last_aggregate_totals: tuple[int, int] | None = None
-        self._last_sample_ts: float | None = None
+        self._last_aggregate_totals: Optional[tuple[int, int]] = None
+        self._last_sample_ts: Optional[float] = None
 
     def collect(self) -> dict[str, Any]:
         discovered_interfaces: dict[str, dict[str, int]] = {}
@@ -76,7 +76,7 @@ class NetworkSensor(Sensor):
             delta_tx = raw_delta_tx if raw_delta_tx >= 0 else totals_tx
             window_seconds = max(now_ts - self._last_sample_ts, 0.0)
 
-        interfaces: dict[str, dict[str, int | float]] = {}
+        interfaces: dict[str, dict[str, Union[int, float]]] = {}
         for name, counters in selected_interfaces.items():
             rx_bytes = counters["rx_bytes"]
             tx_bytes = counters["tx_bytes"]

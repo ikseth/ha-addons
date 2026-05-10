@@ -11,7 +11,7 @@ import subprocess
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 _LIST_RE = re.compile(r'^"(?P<name>.*)"\s+\{(?P<uuid>[^}]+)\}$')
 _OFF_STATES = {"", "poweroff", "saved", "aborted", "inaccessible"}
@@ -55,12 +55,12 @@ class VirtualBoxClient:
         self._command_lock = threading.Lock()
         self._cached_vms: list[dict[str, Any]] = []
         self._cached_vms_refreshed_mono = 0.0
-        self._cached_vms_refreshed_at: str | None = None
-        self._cached_vms_last_attempted_at: str | None = None
-        self._cached_vms_last_error: str | None = None
+        self._cached_vms_refreshed_at: Optional[str] = None
+        self._cached_vms_last_attempted_at: Optional[str] = None
+        self._cached_vms_last_error: Optional[str] = None
         self._cached_vms_failure_count = 0
         self._cached_vms_backoff_until_mono = 0.0
-        self._cached_vms_backoff_until: str | None = None
+        self._cached_vms_backoff_until: Optional[str] = None
 
     def list_vms(self) -> list[dict[str, Any]]:
         snapshot = self.list_vms_snapshot()
@@ -143,9 +143,9 @@ class VirtualBoxClient:
     def resolve_vm(
         self,
         *,
-        vm_uuid: str | None = None,
-        vm_name: str | None = None,
-        vm_id: str | None = None,
+        vm_uuid: Optional[str] = None,
+        vm_name: Optional[str] = None,
+        vm_id: Optional[str] = None,
     ) -> dict[str, Any]:
         raw_identifier = vm_id or vm_uuid or vm_name
         identifier = str(raw_identifier or "").strip()
@@ -364,7 +364,7 @@ class VirtualBoxClient:
                 if str(item.get("uuid", "")).strip()
             }
 
-    def _cached_vm_lookup(self, identifier: str) -> dict[str, Any] | None:
+    def _cached_vm_lookup(self, identifier: str) -> Optional[dict[str, Any]]:
         identifier_key = identifier.strip().lower()
         if not identifier_key:
             return None

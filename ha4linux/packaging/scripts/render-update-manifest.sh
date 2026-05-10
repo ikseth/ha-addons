@@ -16,7 +16,7 @@ fi
 
 CHANNEL="${2:-stable}"
 RAW_BASE_URL="${3:-https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets}"
-CHANGELOG_URL="${4:-https://github.com/ikseth/ha-addons/releases/tag/ha4linux-api-v${VERSION}}"
+CHANGELOG_URL="${4:-https://github.com/ikseth/ha-addons/tree/main/ha4linux}"
 ASSET_NAME="ha4linux-client-update-${VERSION}.tar.gz"
 ASSET_PATH="${HA4LINUX_ROOT}/update-assets/${ASSET_NAME}"
 MANIFEST_PATH="${HA4LINUX_ROOT}/update-manifest.json"
