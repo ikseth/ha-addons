@@ -6,7 +6,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional, Tuple
 
 _ALLOWED_ACTIONS = {"terminate", "stop_service", "none"}
 _VALID_APP_ID = re.compile(r"^[a-zA-Z0-9_-]+$")
@@ -29,7 +29,7 @@ class AppPolicyManager:
         self.use_sudo_kill = use_sudo_kill
         self._lock = threading.Lock()
         self._policies: dict[str, AppPolicy] = {}
-        self._last_error: str | None = None
+        self._last_error: Optional[str] = None
 
     def load(self) -> dict[str, Any]:
         try:
@@ -49,7 +49,7 @@ class AppPolicyManager:
                 self._last_error = str(exc)
             return {"ok": False, "error": str(exc), "policy_file": self.policy_file}
 
-    def status(self, app_id: str | None = None) -> dict[str, Any]:
+    def status(self, app_id: Optional[str] = None) -> dict[str, Any]:
         policies, last_error = self._snapshot()
         if app_id is not None:
             policy = policies.get(app_id)
@@ -84,7 +84,7 @@ class AppPolicyManager:
                 policy.allowed = previous
                 return {"ok": False, "error": f"Failed to persist policy file: {exc}"}
 
-        enforce_result: dict[str, Any] | None = None
+        enforce_result: Optional[dict[str, Any]] = None
         if not allowed:
             enforce_result = self.enforce(app_id=app_id)
 
@@ -96,7 +96,7 @@ class AppPolicyManager:
             "status": self.status(app_id=app_id),
         }
 
-    def enforce(self, app_id: str | None = None) -> dict[str, Any]:
+    def enforce(self, app_id: Optional[str] = None) -> dict[str, Any]:
         policies, _ = self._snapshot()
 
         targets: list[AppPolicy]
@@ -151,7 +151,7 @@ class AppPolicyManager:
             "results": results,
         }
 
-    def _snapshot(self) -> tuple[dict[str, AppPolicy], str | None]:
+    def _snapshot(self) -> Tuple[dict[str, AppPolicy], Optional[str]]:
         with self._lock:
             return dict(self._policies), self._last_error
 
@@ -350,7 +350,7 @@ class AppPolicyManager:
 
         return pids
 
-    def _send_signal(self, pid: int, sig: signal.Signals) -> str | None:
+    def _send_signal(self, pid: int, sig: signal.Signals) -> Optional[str]:
         try:
             os.kill(pid, sig)
             return None

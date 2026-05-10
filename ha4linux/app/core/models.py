@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 
 @dataclass
@@ -8,5 +8,5 @@ class ModuleResult:
     kind: str
     enabled: bool
     available: bool
-    data: dict[str, Any] | None = None
-    reason: str | None = None
+    data: Optional[dict[str, Any]] = None
+    reason: Optional[str] = None

@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 _MISSING = object()
 
@@ -32,8 +32,8 @@ def _as_int(
     value: Any,
     default: int,
     *,
-    minimum: int | None = None,
-    maximum: int | None = None,
+    minimum: Optional[int] = None,
+    maximum: Optional[int] = None,
 ) -> int:
     try:
         parsed = int(value) if value is not None else default

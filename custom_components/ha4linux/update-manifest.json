@@ -1,6 +1,6 @@
 {
-  "version": "0.5.11",
+  "version": "0.5.12",
   "release_url": "https://github.com/ikseth/ha-addons/tree/main/custom_components/ha4linux",
   "download_url": "https://github.com/ikseth/ha-addons/archive/refs/heads/main.zip",
-  "notes": "Manual update of the Home Assistant custom integration from the source repository."
+  "notes": "Manual update from the source repository. Includes HA4Linux client compatibility fixes for Python 3.9/Bullseye hosts."
 }

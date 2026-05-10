@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from app.actuators.app_policy import AppPolicyActuator
 from app.actuators.base import Actuator
@@ -29,7 +29,7 @@ class ModuleRegistry:
         self.settings = settings
         self.sensors: dict[str, Sensor] = {}
         self.actuators: dict[str, Actuator] = {}
-        self.app_policy_manager: AppPolicyManager | None = None
+        self.app_policy_manager: Optional[AppPolicyManager] = None
 
     def load(self) -> None:
         if self.settings.sensors_cpu:
@@ -128,7 +128,7 @@ class ModuleRegistry:
         if self.settings.readonly_mode:
             LOGGER.info("Readonly mode enabled: actuator modules are disabled")
 
-    def _build_virtualbox_client(self) -> VirtualBoxClient | None:
+    def _build_virtualbox_client(self) -> Optional[VirtualBoxClient]:
         if not self.settings.virtualbox_user:
             LOGGER.info(
                 "Skipping virtualbox modules: virtualbox user not configured",
@@ -147,7 +147,7 @@ class ModuleRegistry:
             LOGGER.info("Skipping virtualbox modules: %s", exc)
             return None
 
-    def _build_services_sensor(self) -> ServicesSensor | None:
+    def _build_services_sensor(self) -> Optional[ServicesSensor]:
         try:
             return ServicesSensor(watchlist=self.settings.services_watchlist)
         except ValueError as exc:

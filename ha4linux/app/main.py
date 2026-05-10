@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, Optional
 
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -12,7 +12,7 @@ settings = Settings()
 registry = ModuleRegistry(settings=settings)
 registry.load()
 
-API_VERSION = "0.5.11"
+API_VERSION = "0.5.12"
 API_SCHEMA_VERSION = "1.0"
 API_MIN_INTEGRATION_VERSION = "0.3.0"
 API_MAX_INTEGRATION_VERSION = "0.6.x"
@@ -34,7 +34,7 @@ update_manager = UpdateManager(
 app = FastAPI(title="HA4Linux", version=API_VERSION)
 
 
-def require_auth(authorization: str | None = Header(default=None)) -> None:
+def require_auth(authorization: Optional[str] = Header(default=None)) -> None:
     expected = f"Bearer {settings.api_token}"
     if authorization != expected:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -95,7 +95,7 @@ def update_check(_: None = Depends(require_auth)) -> dict[str, Any]:
 
 @app.post("/v1/update/apply")
 def update_apply(
-    payload: dict[str, Any] | None = None,
+    payload: Optional[dict[str, Any]] = None,
     _: None = Depends(require_auth),
 ) -> dict[str, Any]:
     requested = payload or {}
@@ -112,7 +112,7 @@ def update_rollback(_: None = Depends(require_auth)) -> dict[str, Any]:
 def actuator_action(
     actuator_id: str,
     action: str,
-    payload: dict[str, Any] | None = None,
+    payload: Optional[dict[str, Any]] = None,
     _: None = Depends(require_auth),
 ) -> dict[str, Any]:
     return registry.execute_actuator(

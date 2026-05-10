@@ -8,12 +8,16 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Tuple
 
 _ALLOWED_TARGETS = {"broadcast", "x11"}
 
 
-def _error_result(message: str, *, deliveries: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def _error_result(
+    message: str,
+    *,
+    deliveries: Optional[list[dict[str, Any]]] = None,
+) -> dict[str, Any]:
     result: dict[str, Any] = {"ok": False, "error": message}
     if deliveries is not None:
         result["deliveries"] = deliveries
@@ -79,9 +83,9 @@ def _format_message(*, title: str, message: str) -> str:
 def _run_command(
     command: list[str],
     *,
-    env: dict[str, str] | None = None,
-    user: str | None = None,
-    input_text: str | None = None,
+    env: Optional[dict[str, str]] = None,
+    user: Optional[str] = None,
+    input_text: Optional[str] = None,
     timeout: int = 15,
 ) -> subprocess.CompletedProcess[str]:
     preexec_fn = None
@@ -234,7 +238,7 @@ def _list_graphical_sessions() -> list[dict[str, Any]]:
     return active_sessions or sessions
 
 
-def _session_environment(session: dict[str, Any]) -> tuple[str, dict[str, str]] | None:
+def _session_environment(session: dict[str, Any]) -> Optional[Tuple[str, dict[str, str]]]:
     user = str(session.get("user", "")).strip()
     uid = session.get("uid")
     if not user or not isinstance(uid, int):
