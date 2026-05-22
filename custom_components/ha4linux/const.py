@@ -1,5 +1,5 @@
 DOMAIN = "ha4linux"
-INTEGRATION_VERSION = "0.5.13"
+INTEGRATION_VERSION = "0.5.14"
 INTEGRATION_REPOSITORY_URL = "https://github.com/ikseth/ha-addons/tree/main/custom_components/ha4linux"
 INTEGRATION_DOWNLOAD_URL = "https://github.com/ikseth/ha-addons/archive/refs/heads/main.zip"
 INTEGRATION_UPDATE_MANIFEST_URL = (

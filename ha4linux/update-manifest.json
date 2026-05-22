@@ -1,10 +1,10 @@
 {
   "channels": {
     "stable": {
-      "version": "0.5.13",
+      "version": "0.5.14",
       "changelog_url": "https://github.com/ikseth/ha-addons/tree/main/ha4linux",
-      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.13.tar.gz",
-      "sha256": "f8845309233167a9d2496f7fa6867b47860c0d09f5ff30211398647baae38949"
+      "asset_url": "https://raw.githubusercontent.com/ikseth/ha-addons/main/ha4linux/update-assets/ha4linux-client-update-0.5.14.tar.gz",
+      "sha256": "82c5fca9996c751dea563c521f896bceaecbfe5b6736793d8704f6386a1a8684"
     }
   }
 }
