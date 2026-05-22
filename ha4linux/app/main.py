@@ -17,7 +17,7 @@ settings = Settings()
 registry = ModuleRegistry(settings=settings)
 registry.load()
 
-API_VERSION = "0.5.12"
+API_VERSION = "0.5.13"
 API_SCHEMA_VERSION = "1.0"
 API_MIN_INTEGRATION_VERSION = "0.3.0"
 API_MAX_INTEGRATION_VERSION = "0.6.x"
