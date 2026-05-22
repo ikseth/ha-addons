@@ -30,6 +30,8 @@ tar \
   -C "${REPO_ROOT}" \
   -czf "${ASSET_PATH}" \
   ha4linux/app \
+  ha4linux/tray \
+  ha4linux/icon.png \
   ha4linux/requirements.txt \
   ha4linux/packaging/assets \
   ha4linux/packaging/common/install-client.sh \

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=HA4Linux Tray
+Comment=HA4Linux desktop status and message tray
+Exec=/opt/ha4linux/tray/ha4linux-tray
+TryExec=/opt/ha4linux/tray/ha4linux-tray
+Icon=/opt/ha4linux/ha4linux-icon.png
+Terminal=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true

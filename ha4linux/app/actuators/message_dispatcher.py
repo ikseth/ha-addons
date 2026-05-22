@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from app.actuators.base import Actuator
+from app.core.runtime_state import append_message_history
 
 _ALLOWED_ACTIONS = {"send"}
 _ALLOWED_TARGETS = {"broadcast", "x11"}
@@ -86,9 +87,22 @@ class MessageDispatcherActuator(Actuator):
                 }
             )
             if helper_result.get("ok", False) or requested_targets != ["broadcast"]:
+                append_message_history(
+                    title=title,
+                    message=message,
+                    targets_requested=requested_targets,
+                    result=helper_result,
+                )
                 return helper_result
             if "broadcast" in self.available_targets:
-                return self._send_broadcast(message=message, title=title)
+                result = self._send_broadcast(message=message, title=title)
+                append_message_history(
+                    title=title,
+                    message=message,
+                    targets_requested=requested_targets,
+                    result=result,
+                )
+                return result
             return helper_result
 
         if requested_targets != ["broadcast"]:
@@ -99,7 +113,14 @@ class MessageDispatcherActuator(Actuator):
                 "available_targets": list(self.available_targets),
             }
 
-        return self._send_broadcast(message=message, title=title)
+        result = self._send_broadcast(message=message, title=title)
+        append_message_history(
+            title=title,
+            message=message,
+            targets_requested=requested_targets,
+            result=result,
+        )
+        return result
 
     def _detect_available_targets(self) -> list[str]:
         available_targets: list[str] = []

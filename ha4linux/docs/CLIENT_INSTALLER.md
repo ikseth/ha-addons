@@ -14,6 +14,7 @@ Este proyecto incluye un instalador multi-distro para desplegar el cliente HA4Li
 
 En la maquina cliente Linux (por ejemplo `192.0.2.202`):
 
+
 ```bash
 cd /ruta/ha-addons/ha4linux
 sudo ./packaging/common/install-client.sh
@@ -32,6 +33,8 @@ Esto realiza:
 - Servicio `systemd` `ha4linux.service`
 - Drop-in gestionado en `/etc/systemd/system/ha4linux.service.d/10-ha4linux-managed.conf`
 - Politica `sudoers` limitada para `loginctl`, `systemctl/kill`, mensajeria X11, updates y `VBoxManage`
+- Agente grafico opcional `ha4linux-tray` en `/opt/ha4linux/tray`
+- Entrada autostart global en `/etc/xdg/autostart/ha4linux-tray.desktop`
 
 ## Ajustes post-instalacion
 
@@ -157,6 +160,42 @@ Notas operativas:
 - El modulo `virtualbox` cachea el inventario de VMs, aplica backoff exponencial y sirve cache estale controlada cuando `VBoxManage` falla, para no degradar Home Assistant.
 - La mensajeria `broadcast` usa `wall`.
 - La mensajeria `x11` necesita `loginctl` y al menos `notify-send` o `xmessage` instalados en el host destino.
+
+## Icono de bandeja
+
+El instalador copia un agente grafico opcional:
+
+- `/opt/ha4linux/tray/ha4linux-tray`
+- `/etc/xdg/autostart/ha4linux-tray.desktop`
+
+El agente se ejecuta como el usuario de escritorio en el siguiente inicio de sesion grafica. No forma parte de `ha4linux.service` y no necesita privilegios root.
+
+Funciones actuales:
+
+- Muestra estado local del API.
+- Muestra version de la API.
+- Muestra ultimo cliente autenticado observado por el servicio, normalmente la IP de Home Assistant.
+- Muestra contador de mensajes recibidos.
+- Permite abrir los ultimos mensajes registrados por `message_dispatcher`.
+
+Requisitos:
+
+- Sesion grafica con area de notificacion.
+- Python 3 con PyQt5 disponible en el sistema.
+
+Compatibilidad esperada:
+
+- KDE/openSUSE: `QSystemTrayIcon` funciona con el area de notificacion de Plasma.
+- Raspberry Pi OS/Raspbian con LXDE/LXPanel: funciona si `lxpanel` esta ejecutandose y el panel tiene plugin `tray`.
+
+Si no hay area de notificacion disponible, el agente avisa al arrancar y el servicio API sigue funcionando sin cambios.
+
+Endpoints locales usados por el tray:
+
+- `GET https://127.0.0.1:8099/v1/tray/status`
+- `GET https://127.0.0.1:8099/v1/tray/messages`
+
+Estos endpoints solo aceptan peticiones desde localhost.
 
 Formato minimo de manifest para update remoto con instalacion:
 

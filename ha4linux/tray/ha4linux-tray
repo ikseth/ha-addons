@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import os
+import ssl
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+from urllib.error import URLError
+from urllib.request import urlopen
+
+API_BASE = "https://127.0.0.1:8099"
+POLL_INTERVAL_MS = 30_000
+ICON_PATHS = (
+    Path("/opt/ha4linux/ha4linux-icon.png"),
+    Path("/opt/ha4linux/icon.png"),
+)
+
+
+def _request_json(path: str, timeout: int = 5) -> dict[str, Any]:
+    context = ssl._create_unverified_context()
+    with urlopen(f"{API_BASE}{path}", timeout=timeout, context=context) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    return payload if isinstance(payload, dict) else {}
+
+
+def _format_age(raw_timestamp: str | None) -> str:
+    if not raw_timestamp:
+        return "nunca"
+    try:
+        parsed = datetime.fromisoformat(raw_timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        return raw_timestamp
+    seconds = max(0, int((datetime.now(timezone.utc) - parsed).total_seconds()))
+    if seconds < 60:
+        return f"hace {seconds}s"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"hace {minutes}m"
+    hours = minutes // 60
+    if hours < 48:
+        return f"hace {hours}h"
+    return f"hace {hours // 24}d"
+
+
+def _load_icon(app: QApplication) -> QIcon:
+    for path in ICON_PATHS:
+        if path.is_file():
+            icon = QIcon(str(path))
+            if not icon.isNull():
+                return icon
+    return app.style().standardIcon(app.style().SP_ComputerIcon)
+
+
+class HA4LinuxTray:
+    def __init__(self, app: QApplication) -> None:
+        self.app = app
+        self.status: dict[str, Any] = {}
+        self.last_error = "Sin datos"
+
+        self.tray = QSystemTrayIcon(_load_icon(app), app)
+        self.menu = QMenu()
+
+        self.status_action = QAction("Estado: comprobando...", self.menu)
+        self.status_action.setEnabled(False)
+        self.version_action = QAction("Version: -", self.menu)
+        self.version_action.setEnabled(False)
+        self.ha_action = QAction("Home Assistant: -", self.menu)
+        self.ha_action.setEnabled(False)
+        self.messages_action = QAction("Mensajes: -", self.menu)
+        self.messages_action.setEnabled(False)
+
+        self.refresh_action = QAction("Actualizar ahora", self.menu)
+        self.refresh_action.triggered.connect(self.refresh)
+        self.show_messages_action = QAction("Ver mensajes recientes", self.menu)
+        self.show_messages_action.triggered.connect(self.show_messages)
+        self.about_action = QAction("Acerca de HA4Linux", self.menu)
+        self.about_action.triggered.connect(self.show_about)
+        self.quit_action = QAction("Salir", self.menu)
+        self.quit_action.triggered.connect(app.quit)
+
+        self.menu.addAction(self.status_action)
+        self.menu.addAction(self.version_action)
+        self.menu.addAction(self.ha_action)
+        self.menu.addAction(self.messages_action)
+        self.menu.addSeparator()
+        self.menu.addAction(self.refresh_action)
+        self.menu.addAction(self.show_messages_action)
+        self.menu.addSeparator()
+        self.menu.addAction(self.about_action)
+        self.menu.addAction(self.quit_action)
+        self.tray.setContextMenu(self.menu)
+        self.tray.activated.connect(self._handle_activation)
+
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.refresh)
+
+    def start(self) -> int:
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            QMessageBox.warning(
+                None,
+                "HA4Linux",
+                "No hay area de notificacion disponible en esta sesion.",
+            )
+        self.tray.show()
+        self.refresh()
+        self.timer.start(POLL_INTERVAL_MS)
+        return self.app.exec_()
+
+    def refresh(self) -> None:
+        try:
+            self.status = _request_json("/v1/tray/status")
+        except (OSError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+            self.last_error = str(exc)
+            self._set_unavailable()
+            return
+        self._set_available()
+
+    def _set_available(self) -> None:
+        version = str(self.status.get("api_version") or "-")
+        last_client = self.status.get("last_authenticated_client")
+        if isinstance(last_client, dict):
+            ha_host = str(last_client.get("host") or "-")
+            ha_seen = _format_age(str(last_client.get("seen_at") or ""))
+        else:
+            ha_host = "-"
+            ha_seen = "nunca"
+
+        message_count = int(self.status.get("message_count") or 0)
+        self.status_action.setText("Estado: conectado")
+        self.version_action.setText(f"Version API: {version}")
+        self.ha_action.setText(f"Home Assistant: {ha_host} ({ha_seen})")
+        self.messages_action.setText(f"Mensajes: {message_count}")
+        self.tray.setToolTip(
+            f"HA4Linux conectado\nAPI {version}\nHome Assistant: {ha_host} ({ha_seen})"
+        )
+
+    def _set_unavailable(self) -> None:
+        self.status_action.setText("Estado: servicio no disponible")
+        self.version_action.setText("Version API: -")
+        self.ha_action.setText("Home Assistant: -")
+        self.messages_action.setText("Mensajes: -")
+        self.tray.setToolTip(f"HA4Linux no disponible\n{self.last_error}")
+
+    def show_messages(self) -> None:
+        try:
+            payload = _request_json("/v1/tray/messages")
+        except (OSError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+            QMessageBox.warning(None, "HA4Linux", f"No se pudieron leer mensajes:\n{exc}")
+            return
+
+        messages = payload.get("messages", [])
+        if not isinstance(messages, list) or not messages:
+            QMessageBox.information(None, "HA4Linux", "No hay mensajes registrados.")
+            return
+
+        rows: list[str] = []
+        for item in messages[-10:]:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title") or "Mensaje")
+            received = _format_age(str(item.get("received_at") or ""))
+            text = str(item.get("message") or "")
+            rows.append(f"{title} ({received})\n{text}")
+
+        QMessageBox.information(None, "Mensajes HA4Linux", "\n\n".join(rows))
+
+    def show_about(self) -> None:
+        version = str(self.status.get("api_version") or "-")
+        QMessageBox.information(
+            None,
+            "HA4Linux",
+            f"HA4Linux Tray\nAPI: {version}\nActualizado: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+        )
+
+    def _handle_activation(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        if reason == QSystemTrayIcon.Trigger:
+            self.refresh()
+            self.tray.showMessage(
+                "HA4Linux",
+                self.tray.toolTip(),
+                QSystemTrayIcon.Information,
+                4000,
+            )
+
+
+def main() -> int:
+    global QAction, QApplication, QIcon, QMenu, QMessageBox, QSystemTrayIcon, QTimer
+
+    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        return 0
+
+    try:
+        from PyQt5.QtCore import QTimer
+        from PyQt5.QtGui import QIcon
+        from PyQt5.QtWidgets import QApplication, QSystemTrayIcon
+        from PyQt5.QtWidgets import QAction, QMenu, QMessageBox
+    except ImportError:
+        return 0
+
+    app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
+    app.setApplicationName("HA4Linux Tray")
+
+    if not QSystemTrayIcon.isSystemTrayAvailable():
+        return 0
+
+    return HA4LinuxTray(app).start()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

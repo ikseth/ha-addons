@@ -5,9 +5,12 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 HA4LINUX_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 
 APP_SRC="${HA4LINUX_ROOT}/app"
+TRAY_SRC="${HA4LINUX_ROOT}/tray"
 REQ_SRC="${HA4LINUX_ROOT}/requirements.txt"
+ICON_SRC="${HA4LINUX_ROOT}/icon.png"
 SERVICE_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux.service"
 SERVICE_DROPIN_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux.service.d/10-ha4linux-managed.conf"
+TRAY_DESKTOP_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-tray.desktop"
 CONFIG_EXAMPLE_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux.config.example.json"
 SUDOERS_SRC="${HA4LINUX_ROOT}/packaging/assets/sudoers.ha4linux"
 UPDATE_APPLY_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-apply"
@@ -19,7 +22,9 @@ UPDATE_ROLLBACK_WORKER_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-ro
 MESSAGE_ROOT_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-message-root.py"
 
 INSTALL_DIR="/opt/ha4linux"
+TRAY_DIR="${INSTALL_DIR}/tray"
 UPDATE_DIR="${INSTALL_DIR}/update"
+AUTOSTART_DIR="/etc/xdg/autostart"
 ETC_DIR="/etc/ha4linux"
 CERT_DIR="/etc/ha4linux/certs"
 POLICY_DIR="/etc/ha4linux/policies"
@@ -37,6 +42,8 @@ UPDATE_ROLLBACK_ROOT_TARGET="${UPDATE_DIR}/ha4linux-update-rollback-root.py"
 UPDATE_APPLY_WORKER_TARGET="${UPDATE_DIR}/ha4linux-update-apply-worker.py"
 UPDATE_ROLLBACK_WORKER_TARGET="${UPDATE_DIR}/ha4linux-update-rollback-worker.py"
 MESSAGE_ROOT_TARGET="${INSTALL_DIR}/ha4linux-message-root.py"
+ICON_TARGET="${INSTALL_DIR}/ha4linux-icon.png"
+TRAY_DESKTOP_TARGET="${AUTOSTART_DIR}/ha4linux-tray.desktop"
 LOG_DIR="/var/log/ha4linux"
 DATA_DIR="/var/lib/ha4linux"
 SKIP_DEPS=false
@@ -534,27 +541,32 @@ install_deps() {
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
     apt-get install -y python3 python3-venv python3-pip sudo openssl ca-certificates
+    apt-get install -y python3-pyqt5 || log "Optional tray dependency python3-pyqt5 could not be installed"
     return
   fi
 
   if command -v dnf >/dev/null 2>&1; then
     dnf install -y python3 python3-pip sudo openssl ca-certificates
+    dnf install -y python3-qt5 || log "Optional tray dependency python3-qt5 could not be installed"
     return
   fi
 
   if command -v yum >/dev/null 2>&1; then
     yum install -y python3 python3-pip sudo openssl ca-certificates
+    yum install -y python3-qt5 || log "Optional tray dependency python3-qt5 could not be installed"
     return
   fi
 
   if command -v zypper >/dev/null 2>&1; then
     zypper --non-interactive refresh
     zypper --non-interactive install python3 python3-pip sudo openssl ca-certificates
+    zypper --non-interactive install python3-qt5 || log "Optional tray dependency python3-qt5 could not be installed"
     return
   fi
 
   if command -v pacman >/dev/null 2>&1; then
     pacman -Sy --noconfirm python python-pip sudo openssl ca-certificates
+    pacman -S --noconfirm python-pyqt5 || log "Optional tray dependency python-pyqt5 could not be installed"
     return
   fi
 
@@ -577,7 +589,10 @@ ensure_system_user() {
 
 install_files() {
   [[ -d "${APP_SRC}" ]] || fail "App source not found at ${APP_SRC}"
+  [[ -d "${TRAY_SRC}" ]] || fail "Tray source not found at ${TRAY_SRC}"
   [[ -f "${REQ_SRC}" ]] || fail "requirements.txt not found"
+  [[ -f "${ICON_SRC}" ]] || fail "icon not found"
+  [[ -f "${TRAY_DESKTOP_SRC}" ]] || fail "tray desktop entry not found"
   [[ -f "${CONFIG_EXAMPLE_SRC}" ]] || fail "config template not found"
   [[ -f "${UPDATE_APPLY_SRC}" ]] || fail "update apply helper not found"
   [[ -f "${UPDATE_ROLLBACK_SRC}" ]] || fail "update rollback helper not found"
@@ -588,14 +603,18 @@ install_files() {
   [[ -f "${UPDATE_ROLLBACK_WORKER_SRC}" ]] || fail "update rollback worker not found"
   [[ -f "${MESSAGE_ROOT_SRC}" ]] || fail "message root helper not found"
 
-  mkdir -p "${INSTALL_DIR}" "${UPDATE_DIR}" "${ETC_DIR}" "${CERT_DIR}" "${POLICY_DIR}" "${LOG_DIR}" "${DATA_DIR}"
+  mkdir -p "${INSTALL_DIR}" "${TRAY_DIR}" "${UPDATE_DIR}" "${ETC_DIR}" "${CERT_DIR}" "${POLICY_DIR}" "${LOG_DIR}" "${DATA_DIR}" "${AUTOSTART_DIR}"
   chown root:ha4linux "${POLICY_DIR}"
   chmod 770 "${POLICY_DIR}"
 
   rm -rf "${INSTALL_DIR}/app"
+  rm -rf "${TRAY_DIR}"
   rm -f "${INSTALL_DIR}/requirements.txt"
   cp -a "${APP_SRC}" "${INSTALL_DIR}/"
+  cp -a "${TRAY_SRC}" "${TRAY_DIR}"
   cp -a "${REQ_SRC}" "${INSTALL_DIR}/requirements.txt"
+  install -m 644 "${ICON_SRC}" "${ICON_TARGET}"
+  install -m 644 "${TRAY_DESKTOP_SRC}" "${TRAY_DESKTOP_TARGET}"
   install -m 755 "${UPDATE_APPLY_SRC}" "${UPDATE_APPLY_TARGET}"
   install -m 755 "${UPDATE_ROLLBACK_SRC}" "${UPDATE_ROLLBACK_TARGET}"
   install -m 755 "${UPDATE_APPLY_ROOT_SRC}" "${UPDATE_APPLY_ROOT_TARGET}"
@@ -604,6 +623,7 @@ install_files() {
   install -m 755 "${UPDATE_ROLLBACK_WORKER_SRC}" "${UPDATE_ROLLBACK_WORKER_TARGET}"
   install -m 755 "${MESSAGE_ROOT_SRC}" "${MESSAGE_ROOT_TARGET}"
 
+  chmod 755 "${TRAY_DIR}/ha4linux-tray"
   chown -R root:root "${INSTALL_DIR}"
   chown -R ha4linux:ha4linux "${LOG_DIR}" "${DATA_DIR}"
 

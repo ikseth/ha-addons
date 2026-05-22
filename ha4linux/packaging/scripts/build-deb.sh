@@ -31,6 +31,8 @@ PKG_DIR="${WORK_DIR}/${PKG_NAME}_${VERSION}_${ARCH}"
 mkdir -p "${PKG_DIR}/DEBIAN" "${PKG_DIR}/usr/lib/ha4linux" "${PKG_DIR}/usr/sbin"
 
 cp -a "${HA4LINUX_ROOT}/app" "${PKG_DIR}/usr/lib/ha4linux/"
+cp -a "${HA4LINUX_ROOT}/tray" "${PKG_DIR}/usr/lib/ha4linux/"
+cp -a "${HA4LINUX_ROOT}/icon.png" "${PKG_DIR}/usr/lib/ha4linux/"
 cp -a "${HA4LINUX_ROOT}/requirements.txt" "${PKG_DIR}/usr/lib/ha4linux/"
 cp -a "${HA4LINUX_ROOT}/packaging/assets" "${PKG_DIR}/usr/lib/ha4linux/"
 cp -a "${HA4LINUX_ROOT}/packaging/common/install-client.sh" "${PKG_DIR}/usr/lib/ha4linux/"
@@ -56,6 +58,7 @@ Priority: optional
 Architecture: ${ARCH}
 Maintainer: HA4Linux <noreply@example.com>
 Depends: python3, python3-venv, python3-pip, sudo, openssl, ca-certificates, systemd
+Recommends: python3-pyqt5
 Description: HA4Linux client API installer and service
  Installs HA4Linux API as a systemd service with dedicated user, TLS and sudoers policy.
 EOF_CTRL

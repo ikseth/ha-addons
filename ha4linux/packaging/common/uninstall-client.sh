@@ -12,6 +12,7 @@ rm -rf /etc/systemd/system/ha4linux.service.d
 systemctl daemon-reload
 
 rm -f /etc/sudoers.d/ha4linux
+rm -f /etc/xdg/autostart/ha4linux-tray.desktop
 
 rm -rf /opt/ha4linux
 rm -rf /etc/ha4linux

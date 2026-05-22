@@ -14,6 +14,7 @@ Version funcional `0.5.12` con:
 - Actuador de sesion grafica: `session_manager` (`status`, `activate`, `terminate`).
 - Actuador modular de politicas de apps: `app_policy` (`status`, `allow`, `block`, `enforce`, `reload`).
 - Actuador de mensajeria: `message_dispatcher` (`send`) con rutas configurables `broadcast` y `x11`.
+- Agente grafico opcional de bandeja (`ha4linux-tray`) para estado local y mensajes en sesiones KDE/LXDE compatibles.
 - Actuador de VirtualBox: `virtualbox_manager` (`status`, `start`, `acpi_shutdown`, `savestate`, con acciones peligrosas opt-in).
 - Robustez de VirtualBox: cache de estado, backoff exponencial y circuit breaker para evitar que un `VBoxManage` degradado arrastre el poll de HA.
 - Gestion remota de actualizaciones (opcional y desactivada por defecto): `/v1/update/*`.
@@ -161,6 +162,17 @@ En cliente Linux la configuracion principal pasa a ser JSON estructurado en:
 El servicio `systemd` mantiene un bootstrap minimo en:
 
 - `/etc/ha4linux/ha4linux.env`
+
+## Agente de bandeja
+
+El cliente Linux puede instalar un agente grafico de usuario, separado del servicio principal, para mostrar un icono de bandeja con estado basico:
+
+- version de API
+- ultimo Home Assistant autenticado visto por el servicio
+- contador e historial corto de mensajes recibidos
+- estado local del API
+
+El agente usa PyQt5 y se arranca mediante `/etc/xdg/autostart/ha4linux-tray.desktop` en sesiones graficas con area de notificacion.
 
 Precedencia efectiva:
 
