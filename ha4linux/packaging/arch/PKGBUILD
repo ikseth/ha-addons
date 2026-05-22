@@ -6,6 +6,7 @@ arch=('any')
 url="https://github.com/ikseth/ha-addons"
 license=('MIT')
 depends=('python' 'python-pip' 'sudo' 'openssl' 'ca-certificates' 'systemd')
+optdepends=('python-pyqt5: desktop tray icon')
 install='ha4linux-client.install'
 source=()
 sha256sums=()
@@ -14,6 +15,8 @@ package() {
   install -d "$pkgdir/usr/lib/ha4linux" "$pkgdir/usr/sbin"
 
   cp -a "$srcdir/../../app" "$pkgdir/usr/lib/ha4linux/"
+  cp -a "$srcdir/../../tray" "$pkgdir/usr/lib/ha4linux/"
+  cp -a "$srcdir/../../icon.png" "$pkgdir/usr/lib/ha4linux/"
   cp -a "$srcdir/../../requirements.txt" "$pkgdir/usr/lib/ha4linux/"
   cp -a "$srcdir/../../packaging/assets" "$pkgdir/usr/lib/ha4linux/"
   install -m 755 "$srcdir/../../packaging/common/install-client.sh" "$pkgdir/usr/lib/ha4linux/install-client.sh"

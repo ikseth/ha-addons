@@ -2,10 +2,15 @@ import os
 from typing import Any, Optional
 
 import uvicorn
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
 from app.core.config import Settings
 from app.core.registry import ModuleRegistry
+from app.core.runtime_state import (
+    load_message_history,
+    load_runtime_state,
+    record_authenticated_client,
+)
 from app.core.update_manager import UpdateManager
 
 settings = Settings()
@@ -34,10 +39,25 @@ update_manager = UpdateManager(
 app = FastAPI(title="HA4Linux", version=API_VERSION)
 
 
-def require_auth(authorization: Optional[str] = Header(default=None)) -> None:
+def require_auth(
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+    user_agent: Optional[str] = Header(default=None),
+) -> None:
     expected = f"Bearer {settings.api_token}"
     if authorization != expected:
         raise HTTPException(status_code=401, detail="Unauthorized")
+    record_authenticated_client(
+        host=request.client.host if request.client else None,
+        user_agent=user_agent,
+        path=request.url.path,
+    )
+
+
+def require_local_request(request: Request) -> None:
+    host = request.client.host if request.client else ""
+    if host not in {"127.0.0.1", "::1"}:
+        raise HTTPException(status_code=403, detail="Local access only")
 
 
 @app.get("/health")
@@ -106,6 +126,33 @@ def update_apply(
 @app.post("/v1/update/rollback")
 def update_rollback(_: None = Depends(require_auth)) -> dict[str, Any]:
     return update_manager.rollback()
+
+
+@app.get("/v1/tray/status")
+def tray_status(_: None = Depends(require_local_request)) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "api_version": API_VERSION,
+        "schema_version": API_SCHEMA_VERSION,
+        "bind_port": settings.bind_port,
+        "tls_enabled": settings.tls_enabled,
+        "readonly_mode": settings.readonly_mode,
+        "last_authenticated_client": load_runtime_state().get("last_authenticated_client"),
+        "capabilities": {
+            "sensors": sorted(registry.sensors.keys()),
+            "actuators": sorted(registry.actuators.keys()),
+            "actuator_details": registry.actuator_capabilities(),
+        },
+        "message_count": len(load_message_history(limit=100)),
+    }
+
+
+@app.get("/v1/tray/messages")
+def tray_messages(_: None = Depends(require_local_request)) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "messages": load_message_history(limit=50),
+    }
 
 
 @app.post("/v1/actuators/{actuator_id}/{action}")
