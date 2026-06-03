@@ -2,15 +2,17 @@ import json
 import os
 import re
 import signal
+import stat
 import subprocess
 import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Optional, Tuple
 
-_ALLOWED_ACTIONS = {"terminate", "stop_service", "none"}
+_ALLOWED_ACTIONS = {"terminate", "stop_service", "none", "disable_exec"}
 _VALID_APP_ID = re.compile(r"^[a-zA-Z0-9_-]+$")
 _VALID_NAME = re.compile(r"^[a-zA-Z0-9_.@-]+$")
+_EXEC_STATE_FILE = "/var/lib/ha4linux/app_policy_exec_state.json"
 
 
 @dataclass
@@ -18,6 +20,7 @@ class AppPolicy:
     app_id: str
     process_names: list[str]
     service_names: list[str]
+    executable_paths: list[str]
     allowed: bool
     action_on_block: str
     monitor_only: bool
@@ -77,6 +80,18 @@ class AppPolicyManager:
                 return {"ok": False, "error": f"Unknown app_id '{app_id}'"}
 
             previous = policy.allowed
+
+            restore_result: Optional[dict[str, Any]] = None
+            if allowed and policy.action_on_block == "disable_exec":
+                restore_result = self._restore_exec(policy)
+                if not restore_result.get("ok", False):
+                    return {
+                        "ok": False,
+                        "app_id": app_id,
+                        "allowed": previous,
+                        "restore": restore_result,
+                    }
+
             policy.allowed = allowed
             try:
                 self._persist_locked()
@@ -92,6 +107,7 @@ class AppPolicyManager:
             "ok": True,
             "app_id": app_id,
             "allowed": allowed,
+            "restore": restore_result,
             "enforce": enforce_result,
             "status": self.status(app_id=app_id),
         }
@@ -122,11 +138,26 @@ class AppPolicyManager:
                 "actions": [],
             }
 
-            if policy.allowed or policy.monitor_only or not current["running"]:
+            if policy.allowed or policy.monitor_only:
                 results.append(item)
                 continue
 
-            if policy.action_on_block == "terminate":
+            if policy.action_on_block == "disable_exec":
+                action_result = self._disable_exec(policy)
+                item["actions"].append(action_result)
+                if action_result.get("attempted"):
+                    action_count += 1
+
+                for process_name in current["running_process_names"]:
+                    action_result = self._terminate_process(process_name)
+                    item["actions"].append(action_result)
+                    if action_result.get("attempted"):
+                        action_count += 1
+
+            elif policy.action_on_block == "terminate":
+                if not current["running"]:
+                    results.append(item)
+                    continue
                 for process_name in current["running_process_names"]:
                     action_result = self._terminate_process(process_name)
                     item["actions"].append(action_result)
@@ -134,6 +165,9 @@ class AppPolicyManager:
                         action_count += 1
 
             elif policy.action_on_block == "stop_service":
+                if not current["running"]:
+                    results.append(item)
+                    continue
                 for service_name in current["active_services"]:
                     action_result = self._stop_service(service_name)
                     item["actions"].append(action_result)
@@ -191,10 +225,14 @@ class AppPolicyManager:
 
             process_names = self._extract_names(raw.get("process_names", []), "process_names")
             service_names = self._extract_names(raw.get("service_names", []), "service_names")
+            executable_paths = self._extract_paths(
+                raw.get("executable_paths", []),
+                "executable_paths",
+            )
 
-            if not process_names and not service_names:
+            if not process_names and not service_names and not executable_paths:
                 raise RuntimeError(
-                    f"App '{app_id}' must define at least one process or service name"
+                    f"App '{app_id}' must define at least one process, service or executable path"
                 )
 
             action_on_block = str(raw.get("action_on_block", "terminate")).strip().lower()
@@ -202,11 +240,16 @@ class AppPolicyManager:
                 raise RuntimeError(
                     f"Invalid action_on_block '{action_on_block}' for app '{app_id}'"
                 )
+            if action_on_block == "disable_exec" and not executable_paths:
+                raise RuntimeError(
+                    f"App '{app_id}' with action_on_block=disable_exec must define executable_paths"
+                )
 
             parsed[app_id] = AppPolicy(
                 app_id=app_id,
                 process_names=process_names,
                 service_names=service_names,
+                executable_paths=executable_paths,
                 allowed=bool(raw.get("allowed", True)),
                 action_on_block=action_on_block,
                 monitor_only=bool(raw.get("monitor_only", False)),
@@ -229,6 +272,21 @@ class AppPolicyManager:
 
         return sorted(set(names))
 
+    def _extract_paths(self, value: Any, field_name: str) -> list[str]:
+        if not isinstance(value, list):
+            raise RuntimeError(f"{field_name} must be a list")
+
+        paths: list[str] = []
+        for raw in value:
+            path = str(raw).strip()
+            if not path:
+                continue
+            if not path.startswith("/") or "\x00" in path:
+                raise RuntimeError(f"Invalid path '{path}' in {field_name}")
+            paths.append(path)
+
+        return sorted(set(paths))
+
     def _persist_locked(self) -> None:
         payload = {
             "apps": [
@@ -236,6 +294,7 @@ class AppPolicyManager:
                     "id": policy.app_id,
                     "process_names": policy.process_names,
                     "service_names": policy.service_names,
+                    "executable_paths": policy.executable_paths,
                     "allowed": policy.allowed,
                     "action_on_block": policy.action_on_block,
                     "monitor_only": policy.monitor_only,
@@ -263,8 +322,20 @@ class AppPolicyManager:
             if self._is_service_active(service_name)
         ]
 
+        executable_status = [
+            self._executable_status(path)
+            for path in policy.executable_paths
+        ]
         running = bool(running_processes or active_services)
         violating = running and not policy.allowed
+        existing_executables = [
+            item for item in executable_status if item.get("exists", False)
+        ]
+        blocking_effective = (
+            policy.action_on_block == "disable_exec"
+            and bool(existing_executables)
+            and all(item.get("blocked", False) for item in existing_executables)
+        )
 
         return {
             "app_id": policy.app_id,
@@ -273,10 +344,34 @@ class AppPolicyManager:
             "action_on_block": policy.action_on_block,
             "running": running,
             "violating": violating,
+            "blocking_effective": blocking_effective,
             "running_process_names": running_processes,
             "active_services": active_services,
             "process_names": policy.process_names,
             "service_names": policy.service_names,
+            "executable_paths": policy.executable_paths,
+            "executable_status": executable_status,
+        }
+
+    def _executable_status(self, path: str) -> dict[str, Any]:
+        try:
+            st = os.stat(path)
+        except OSError as exc:
+            return {
+                "path": path,
+                "exists": False,
+                "blocked": False,
+                "error": str(exc),
+            }
+
+        mode = stat.S_IMODE(st.st_mode)
+        executable = bool(mode & 0o111)
+        return {
+            "path": path,
+            "exists": True,
+            "mode": f"{mode:04o}",
+            "executable": executable,
+            "blocked": not executable,
         }
 
     def _is_process_running(self, process_name: str) -> bool:
@@ -367,6 +462,132 @@ class AppPolicyManager:
                     return None
                 return sudo.stderr.strip() or f"sudo kill rc={sudo.returncode}"
             return str(exc)
+
+    def _read_exec_state(self) -> dict[str, Any]:
+        try:
+            with open(_EXEC_STATE_FILE, "r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except (OSError, json.JSONDecodeError):
+            return {"paths": {}}
+
+        if not isinstance(payload, dict):
+            return {"paths": {}}
+        paths = payload.get("paths")
+        if not isinstance(paths, dict):
+            payload["paths"] = {}
+        return payload
+
+    def _write_exec_state(self, payload: dict[str, Any]) -> None:
+        parent = os.path.dirname(_EXEC_STATE_FILE)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+
+        tmp_file = f"{_EXEC_STATE_FILE}.tmp"
+        with open(tmp_file, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+        os.replace(tmp_file, _EXEC_STATE_FILE)
+
+    def _sudo_chmod(self, mode: int, path: str) -> dict[str, Any]:
+        result = subprocess.run(
+            ["sudo", "-n", "chmod", f"{mode:04o}", path],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return {
+            "path": path,
+            "mode": f"{mode:04o}",
+            "rc": result.returncode,
+            "ok": result.returncode == 0,
+            "stderr": result.stderr.strip(),
+        }
+
+    def _disable_exec(self, policy: AppPolicy) -> dict[str, Any]:
+        state = self._read_exec_state()
+        paths_state = state.setdefault("paths", {})
+        actions: list[dict[str, Any]] = []
+
+        for path in policy.executable_paths:
+            status = self._executable_status(path)
+            if not status.get("exists", False):
+                actions.append({
+                    "path": path,
+                    "attempted": False,
+                    "ok": False,
+                    "error": status.get("error", "Path does not exist"),
+                })
+                continue
+
+            current_mode = int(str(status["mode"]), 8)
+            if path not in paths_state:
+                paths_state[path] = {
+                    "original_mode": f"{current_mode:04o}",
+                    "app_id": policy.app_id,
+                }
+
+            blocked_mode = current_mode & ~0o111
+            if blocked_mode == current_mode:
+                actions.append({
+                    "path": path,
+                    "attempted": False,
+                    "ok": True,
+                    "mode": f"{current_mode:04o}",
+                    "message": "Executable bits already disabled",
+                })
+                continue
+
+            chmod_result = self._sudo_chmod(blocked_mode, path)
+            chmod_result["attempted"] = True
+            actions.append(chmod_result)
+
+        self._write_exec_state(state)
+        return {
+            "type": "disable_exec",
+            "attempted": bool(policy.executable_paths),
+            "ok": all(item.get("ok", False) for item in actions),
+            "actions": actions,
+        }
+
+    def _restore_exec(self, policy: AppPolicy) -> dict[str, Any]:
+        state = self._read_exec_state()
+        paths_state = state.setdefault("paths", {})
+        actions: list[dict[str, Any]] = []
+
+        for path in policy.executable_paths:
+            stored = paths_state.get(path)
+            if not isinstance(stored, dict) or "original_mode" not in stored:
+                actions.append({
+                    "path": path,
+                    "attempted": False,
+                    "ok": True,
+                    "message": "No stored executable mode; leaving unchanged",
+                })
+                continue
+
+            try:
+                original_mode = int(str(stored["original_mode"]), 8)
+            except ValueError:
+                actions.append({
+                    "path": path,
+                    "attempted": False,
+                    "ok": False,
+                    "error": f"Invalid stored mode '{stored['original_mode']}'",
+                })
+                continue
+
+            chmod_result = self._sudo_chmod(original_mode, path)
+            chmod_result["attempted"] = True
+            actions.append(chmod_result)
+            if chmod_result.get("ok", False):
+                paths_state.pop(path, None)
+
+        self._write_exec_state(state)
+        return {
+            "type": "restore_exec",
+            "attempted": bool(policy.executable_paths),
+            "ok": all(item.get("ok", False) for item in actions),
+            "actions": actions,
+        }
 
     def _stop_service(self, service_name: str) -> dict[str, Any]:
         active_before = self._is_service_active(service_name)
