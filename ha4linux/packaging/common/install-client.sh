@@ -176,7 +176,7 @@ lines.append(
     "Cmnd_Alias HA4LINUX_SESSION = /usr/bin/loginctl activate *, /usr/bin/loginctl terminate-session *"
 )
 lines.append(
-    "Cmnd_Alias HA4LINUX_APPS = /usr/bin/systemctl stop *, /bin/kill -15 *, /bin/kill -9 *, /usr/bin/kill -15 *, /usr/bin/kill -9 *"
+    "Cmnd_Alias HA4LINUX_APPS = /usr/bin/systemctl stop *, /bin/kill -15 *, /bin/kill -9 *, /usr/bin/kill -15 *, /usr/bin/kill -9 *, /bin/chmod *, /usr/bin/chmod *"
 )
 
 if virtualbox_enabled:

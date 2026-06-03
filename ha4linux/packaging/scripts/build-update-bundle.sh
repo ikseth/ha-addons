@@ -27,6 +27,8 @@ tar \
   --owner=0 \
   --group=0 \
   --numeric-owner \
+  --exclude='*/__pycache__' \
+  --exclude='*.pyc' \
   -C "${REPO_ROOT}" \
   -czf "${ASSET_PATH}" \
   ha4linux/app \

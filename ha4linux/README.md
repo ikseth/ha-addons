@@ -4,7 +4,7 @@ Add-on modular para Home Assistant orientado a monitorizacion y control operativ
 
 ## Estado actual
 
-Version funcional `0.5.14` con:
+Version funcional `0.5.15` con:
 
 - Sensores base: `cpu_load`, `memory`, `network`.
 - Sensores de infraestructura: `raid_mdstat`, `virtualbox`, `services`.
@@ -52,8 +52,9 @@ Ejemplo de politica (opcional):
       "id": "kodi",
       "process_names": ["kodi.bin", "kodi"],
       "service_names": [],
+      "executable_paths": ["/usr/lib/aarch64-linux-gnu/kodi/kodi.bin"],
       "allowed": true,
-      "action_on_block": "terminate",
+      "action_on_block": "disable_exec",
       "monitor_only": false
     }
   ]
@@ -66,6 +67,8 @@ Semantica:
 - `allowed=false`: la app queda bloqueada.
 - `action_on_block=terminate`: termina procesos detectados.
 - `action_on_block=stop_service`: intenta parar servicios declarados via `sudo -n systemctl stop`.
+- `action_on_block=disable_exec`: elimina los bits de ejecucion de los binarios declarados en `executable_paths`, termina procesos ya activos y restaura el modo original al volver a `allowed=true`.
+- `executable_paths`: rutas absolutas de binarios reales. Para Kodi suele ser mas robusto usar `kodi.bin` que el lanzador `/usr/bin/kodi`.
 - `monitor_only=true`: solo monitoriza, sin aplicar bloqueo.
 
 ## API basica
@@ -190,13 +193,17 @@ ha4linux ALL=(root) NOPASSWD: HA4LINUX_SESSION
 Defaults:ha4linux !requiretty
 ```
 
-### Politicas con stop de servicios
+### Politicas de apps
 
 ```sudoers
-Cmnd_Alias HA4LINUX_APPS = /usr/bin/systemctl stop *
+Cmnd_Alias HA4LINUX_APPS = /usr/bin/systemctl stop *, /bin/kill -15 *, /bin/kill -9 *, /usr/bin/kill -15 *, /usr/bin/kill -9 *, /bin/chmod *, /usr/bin/chmod *
 ha4linux ALL=(root) NOPASSWD: HA4LINUX_APPS
 Defaults:ha4linux !requiretty
 ```
+
+Para `action_on_block=disable_exec`, el instalador cliente incluye tambien `chmod` limitado al alias `HA4LINUX_APPS`.
+El servicio gestionado permite escritura en `/usr/bin`, `/usr/local/bin` y `/usr/lib` para que `ProtectSystem=full` no bloquee el cambio de permisos.
+Si una politica apunta a binarios fuera de esas rutas, anade un drop-in systemd especifico con `ReadWritePaths=<directorio-del-binario>`.
 
 ### Mensajeria X11
 
