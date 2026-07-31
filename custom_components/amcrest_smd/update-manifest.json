@@ -1,0 +1,6 @@
+{
+  "version": "0.1.0",
+  "release_url": "https://github.com/ikseth/ha-addons/tree/main/custom_components/amcrest_smd",
+  "download_url": "https://github.com/ikseth/ha-addons/archive/refs/heads/main.zip",
+  "notes": "Version inicial. Deteccion SMD de persona y vehiculo por push sobre el stream de eventos de la camara."
+}
