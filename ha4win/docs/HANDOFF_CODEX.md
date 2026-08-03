@@ -103,9 +103,10 @@ integración.
 
 | IP | Nombre | Tipo | Sistema | Valoración |
 | --- | --- | --- | --- | --- |
-| .181 | *(sin nombre publicado)* | **VM VMware** | Windows moderno, SMBv1 desactivado | **Candidato** |
-| .182 | WIN1102 | **VM VMware** | Windows moderno, SMBv1 desactivado | **Candidato** |
-| .183 | WIN1103 | **VM VMware** | Windows moderno, SMBv1 desactivado | **Candidato** |
+| *(por asignar)* | **WIN1104** | **VM VMware, apagada** | Windows moderno | **Banco principal.** VM creada para pruebas, no productiva |
+| .181 | *(sin nombre publicado)* | VM VMware | Windows moderno, SMBv1 desactivado | Reserva productiva (solo fuera de horario) |
+| .182 | WIN1102 | VM VMware | Windows moderno, SMBv1 desactivado | Reserva productiva (solo fuera de horario) |
+| .183 | WIN1103 | VM VMware | Windows moderno, SMBv1 desactivado | Reserva productiva (solo fuera de horario) |
 | .30 | APP08-SRV | VM VirtualBox | Windows Server 2008 R2 SP1 | Solo validación del build legacy (fase 6) |
 | .102 | PLOTER | Físico (Dell) | Windows 7 Pro SP1 | Producción. No tocar |
 | .101 | Pc-Iñaky | Físico | Windows moderno | Producción. No tocar |
@@ -119,13 +120,25 @@ integración.
 
 ### Política de uso de los candidatos
 
-Las VM VMware `WIN1102` / `WIN1103` / `.181` son los **puestos productivos de
-tres usuarios**, no máquinas de laboratorio. Condiciones de uso, no negociables:
+**Banco principal: `WIN1104`.** VM VMware creada expresamente como máquina de
+pruebas, hoy apagada para descargar el servidor. Es el candidato preferente
+justamente porque **no es productiva**: evita la restricción de horario que sí
+afecta al resto. Consideraciones de uso:
 
-- Solo **fuera de horario y sin sesión de usuario activa** en la VM.
-- **Snapshot antes** de cualquier prueba destructiva —imprescindible en la fase 3
-  (`shutdown`/`restart` reales) y en la fase 4 (sabotaje deliberado de un binario
-  para forzar el rollback)— y restauración después.
+- Se enciende puntualmente para las tandas de prueba y se apaga al terminar, para
+  no cargar el host VMware de forma permanente.
+- Puede requerir **ajustar sus recursos asignados** (vCPU/RAM) antes de
+  encenderla, según la holgura del servidor VMware en ese momento. El agente en sí
+  es ligero (~15 MB RSS), así que un dimensionamiento modesto basta.
+- Aun siendo de pruebas, conviene **snapshot antes** de las fases destructivas
+  (fase 3 `shutdown`/`restart`; fase 4 sabotaje del binario para forzar rollback) y
+  restauración después: es más rápido que reinstalar.
+- Pendiente al tomar posesión: asignarle/confirmar su IP en la VLAN 45 y anotarla
+  aquí.
+
+**Reservas (`WIN1102` / `WIN1103` / `.181`)**: puestos productivos de tres
+usuarios. Solo si `WIN1104` no estuviera disponible, y entonces **solo fuera de
+horario, sin sesión de usuario activa y con snapshot previo**.
 
 Algunos PC físicos son terminales de bajo uso y podrían liberarse como banco
 alternativo, pendiente de confirmación in situ del propietario. Hasta esa
