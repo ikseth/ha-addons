@@ -1,0 +1,58 @@
+power_action:
+  name: Power action
+  description: Execute a power manager action on one or more HA4Win hosts.
+  target:
+    device:
+      integration: ha4win
+    entity:
+      integration: ha4win
+  fields:
+    action:
+      name: Action
+      description: Power action exposed by the target host.
+      required: true
+      selector:
+        select:
+          options:
+            - label: Lock
+              value: lock
+            - label: Sleep
+              value: sleep
+            - label: Hibernate
+              value: hibernate
+            - label: Restart
+              value: restart
+            - label: Shutdown
+              value: shutdown
+            - label: Cancel shutdown
+              value: cancel
+    delay_seconds:
+      name: Delay
+      description: Countdown before restart or shutdown. Omit to use the host default.
+      selector:
+        number:
+          min: 0
+          max: 86400
+          unit_of_measurement: s
+          mode: box
+    force:
+      name: Force
+      description: Close applications even if they contain unsaved changes.
+      selector:
+        boolean:
+    message:
+      name: Message
+      description: Optional warning shown to the user during the countdown.
+      selector:
+        text:
+          multiline: true
+    host:
+      name: Host
+      description: Optional host target when no device or entity is selected.
+      selector:
+        text:
+    entry_id:
+      name: Config entry ID
+      description: Optional Home Assistant config entry target.
+      selector:
+        text:
