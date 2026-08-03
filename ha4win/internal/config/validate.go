@@ -61,6 +61,21 @@ func Validate(cfg Config) (Validation, error) {
 	if cfg.Modules.Services.Enabled && len(cfg.Modules.Services.Watchlist) == 0 {
 		warnings = append(warnings, "modules.services is enabled with an empty watchlist and will not be registered")
 	}
+	if cfg.Modules.SystemInfo.UpdatesProvider != "wua" && cfg.Modules.SystemInfo.UpdatesProvider != "disabled" {
+		return Validation{}, fmt.Errorf("modules.system_info.updates_provider must be wua or disabled")
+	}
+	if cfg.Modules.SystemInfo.UpdatesSearchScope != "default" && cfg.Modules.SystemInfo.UpdatesSearchScope != "managed" {
+		return Validation{}, fmt.Errorf("modules.system_info.updates_search_scope must be default or managed")
+	}
+	if cfg.Modules.SystemInfo.UpdatesCheckIntervalSec <= 0 || cfg.Modules.SystemInfo.UpdatesTimeoutSec <= 0 {
+		return Validation{}, fmt.Errorf("modules.system_info update intervals and timeout must be greater than zero")
+	}
+	if cfg.Modules.SystemInfo.UpdatesMaxPackages <= 0 {
+		return Validation{}, fmt.Errorf("modules.system_info.updates_max_packages must be greater than zero")
+	}
+	if cfg.Modules.Security.RefreshIntervalSec <= 0 {
+		return Validation{}, fmt.Errorf("modules.security.refresh_interval_sec must be greater than zero")
+	}
 	if !cfg.ReadonlyMode {
 		validActions := map[string]bool{"lock": true, "sleep": true, "hibernate": true, "restart": true, "shutdown": true}
 		for _, action := range cfg.Actuators.Power.AllowedActions {

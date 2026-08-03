@@ -23,6 +23,10 @@ func TestValidate(t *testing.T) {
 		{"bad CIDR", func(cfg *Config) { cfg.API.AllowedClients = []string{"192.0.2.1"} }},
 		{"bad action", func(cfg *Config) { cfg.Actuators.Power.AllowedActions = []string{"reboot"} }},
 		{"missing manifest", func(cfg *Config) { cfg.Management.RemoteUpdate.Enabled = true }},
+		{"bad updates provider", func(cfg *Config) { cfg.Modules.SystemInfo.UpdatesProvider = "powershell" }},
+		{"bad updates scope", func(cfg *Config) { cfg.Modules.SystemInfo.UpdatesSearchScope = "internet" }},
+		{"bad updates timeout", func(cfg *Config) { cfg.Modules.SystemInfo.UpdatesTimeoutSec = 0 }},
+		{"bad security refresh", func(cfg *Config) { cfg.Modules.Security.RefreshIntervalSec = 0 }},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
