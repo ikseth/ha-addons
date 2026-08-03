@@ -27,7 +27,7 @@ def _schema(data: dict[str, Any] | None = None) -> vol.Schema:
     data = data or {}
     return vol.Schema(
         {
-            vol.Required(CONF_HOST, default=data.get(CONF_HOST, "192.0.2.202")): str,
+            vol.Required(CONF_HOST, default=data.get(CONF_HOST, "192.0.2.10")): str,
             vol.Required(CONF_PORT, default=data.get(CONF_PORT, DEFAULT_PORT)): int,
             vol.Required(CONF_TOKEN, default=data.get(CONF_TOKEN, "")): str,
             vol.Required(CONF_USE_HTTPS, default=data.get(CONF_USE_HTTPS, DEFAULT_USE_HTTPS)): bool,
@@ -117,7 +117,7 @@ class HA4LinuxOptionsFlow(config_entries.OptionsFlow):
 
         config_entry = self.config_entry
         defaults = {
-            CONF_HOST: "192.0.2.202",
+            CONF_HOST: "192.0.2.10",
             CONF_PORT: DEFAULT_PORT,
             CONF_TOKEN: "",
             CONF_USE_HTTPS: DEFAULT_USE_HTTPS,

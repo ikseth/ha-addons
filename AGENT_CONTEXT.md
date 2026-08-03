@@ -4,7 +4,7 @@ Este fichero define las directrices operativas para trabajar en este repositorio
 
 ## Entorno y flujo
 
-- Host de pruebas disponible: `root@198.51.100.202`.
+- Host de pruebas: se indica en la sesión de trabajo (no se fija en el repositorio público).
 - Este proyecto usa GitHub.
 - Los commits solo deben realizarse despues de validar funcionalmente los cambios.
 

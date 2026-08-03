@@ -18,7 +18,7 @@ cp -r custom_components/ha4linux /config/custom_components/
 
 4. Buscar `HA4Linux` y completar:
 
-- Host: `192.0.2.202`
+- Host: `192.0.2.10`
 - Port: `8099`
 - Token API
 - HTTPS: activado

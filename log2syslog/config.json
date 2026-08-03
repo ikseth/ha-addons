@@ -11,7 +11,7 @@
     "data:rw"
   ],
   "options": {
-    "dest_ip": "198.51.100.62",
+    "dest_ip": "192.0.2.62",
     "dest_port": 514,
     "debug": true
   },

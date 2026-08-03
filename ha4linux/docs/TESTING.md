@@ -1,21 +1,21 @@
 # Testing seguro (entorno HA productivo)
 
-Objetivo: validar la API en `192.0.2.202` minimizando impacto en HA `192.0.2.30`.
+Objetivo: validar la API en `192.0.2.10` minimizando impacto en HA `192.0.2.20`.
 
 ## Fase 0: conectividad (no intrusiva)
 
 Desde una maquina con red a ambos hosts:
 
 ```bash
-ping -c 1 192.0.2.202
-ping -c 1 192.0.2.30
-nc -zv 192.0.2.202 8099
-nc -zv 192.0.2.30 8123
+ping -c 1 192.0.2.10
+ping -c 1 192.0.2.20
+nc -zv 192.0.2.10 8099
+nc -zv 192.0.2.20 8123
 ```
 
 ## Fase 1: desplegar API en cliente Linux
 
-En `192.0.2.202`, ejecutar con TLS y token:
+En `192.0.2.10`, ejecutar con TLS y token:
 
 ```bash
 docker run -d --name ha4linux \
@@ -33,11 +33,11 @@ Nota: si aun no tienes PKI lista, para prueba puntual puedes usar `HA4LINUX_TLS_
 
 ## Fase 2: smoke test (solo lectura por defecto)
 
-Desde HA server (`192.0.2.30`) o desde otra maquina de admin:
+Desde HA server (`192.0.2.20`) o desde otra maquina de admin:
 
 ```bash
 cd /ruta/al/repo/ha-addons
-./ha4linux/scripts/smoke_test_api.sh https://192.0.2.202:8099 '<TOKEN_SEGURA>' --insecure
+./ha4linux/scripts/smoke_test_api.sh https://192.0.2.10:8099 '<TOKEN_SEGURA>' --insecure
 ```
 
 - `--insecure` evita fallo por certificado no confiado durante pruebas.
@@ -48,7 +48,7 @@ cd /ruta/al/repo/ha-addons
 Solo cuando se autorice:
 
 ```bash
-./ha4linux/scripts/smoke_test_api.sh https://192.0.2.202:8099 '<TOKEN_SEGURA>' --insecure --with-actuation
+./ha4linux/scripts/smoke_test_api.sh https://192.0.2.10:8099 '<TOKEN_SEGURA>' --insecure --with-actuation
 ```
 
 Esto intenta `terminate` de la sesion grafica activa.

@@ -29,7 +29,7 @@ explícitamente en cada sección.
   `X-Forwarded-For` ni `Forwarded`: el agente está pensado para acceso directo desde
   Home Assistant, no detrás de un proxy inverso.
 - **IPv4 e IPv6 desde el primer día.** Las direcciones IPv4-mapped IPv6
-  (`::ffff:192.168.0.10`) se normalizan a su forma IPv4 antes de comparar; los
+  (`::ffff:192.0.2.10`) se normalizan a su forma IPv4 antes de comparar; los
   identificadores de zona (`fe80::1%eth0`) se descartan antes de la comparación.
   Ambas familias se soportan en la Fase 0, no se aplazan.
 

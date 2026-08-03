@@ -37,6 +37,6 @@ send_message:
     host:
       name: Host
       description: Optional host override when no device or entity target is selected.
-      example: 198.51.100.40
+      example: 192.0.2.40
       selector:
         text:

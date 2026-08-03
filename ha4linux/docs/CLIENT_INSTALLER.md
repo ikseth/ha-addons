@@ -12,7 +12,7 @@ Este proyecto incluye un instalador multi-distro para desplegar el cliente HA4Li
 
 ## Instalacion directa (recomendada para MVP)
 
-En la maquina cliente Linux (por ejemplo `192.0.2.202`):
+En la maquina cliente Linux (por ejemplo `192.0.2.10`):
 
 
 ```bash

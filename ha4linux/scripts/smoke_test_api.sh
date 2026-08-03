@@ -3,7 +3,7 @@ set -euo pipefail
 
 if [[ $# -lt 2 ]]; then
   echo "Usage: $0 <base_url> <bearer_token> [--insecure] [--with-actuation]"
-  echo "Example: $0 https://192.0.2.202:8099 mytoken --insecure"
+  echo "Example: $0 https://192.0.2.10:8099 mytoken --insecure"
   exit 1
 fi
 
