@@ -51,3 +51,15 @@ func TestLoopbackClassification(t *testing.T) {
 		}
 	}
 }
+
+func TestVolumeDriveTypeUsesContractName(t *testing.T) {
+	cfg := validConfig()
+	cfg.Modules.Volumes.IncludeDriveTypes = []string{"network"}
+	if _, err := Validate(cfg); err != nil {
+		t.Fatalf("contract drive type was rejected: %v", err)
+	}
+	cfg.Modules.Volumes.IncludeDriveTypes = []string{"remote"}
+	if _, err := Validate(cfg); err == nil {
+		t.Fatal("non-contract drive type remote was accepted")
+	}
+}

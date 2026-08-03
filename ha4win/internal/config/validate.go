@@ -52,7 +52,7 @@ func Validate(cfg Config) (Validation, error) {
 	if cfg.Modules.Network.AggregateMode != "selected" && cfg.Modules.Network.AggregateMode != "all" {
 		return Validation{}, fmt.Errorf("modules.network.aggregate_mode must be selected or all")
 	}
-	validDriveTypes := map[string]bool{"fixed": true, "removable": true, "remote": true, "cdrom": true, "ramdisk": true}
+	validDriveTypes := map[string]bool{"fixed": true, "removable": true, "network": true, "cdrom": true, "ramdisk": true}
 	for _, driveType := range cfg.Modules.Volumes.IncludeDriveTypes {
 		if !validDriveTypes[driveType] {
 			return Validation{}, fmt.Errorf("modules.volumes.include_drive_types contains unknown value %q", driveType)

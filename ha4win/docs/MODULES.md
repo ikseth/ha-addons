@@ -59,13 +59,26 @@ sea comparable entre plataformas.
 | Estado interno | Contadores por interfaz y timestamp de la última muestra |
 | Config | `modules.network.enabled` (true), `include_interfaces`, `exclude_interfaces`, `aggregate_mode` (`selected` \| `all`) |
 
-Se descartan siempre: loopback (`IF_TYPE_SOFTWARE_LOOPBACK`), túneles, y las
-interfaces con `oper_status != up` **a efectos de agregado**, aunque siguen
-apareciendo en `interfaces` si están seleccionadas explícitamente.
+**Solo interfaces hardware.** `GetIfTable2` devuelve, además de las NICs reales,
+las **capas de filtro NDIS** que los drivers instalan sobre cada adaptador (QoS
+Packet Scheduler, WFP MAC Layer LightWeight Filter, Npcap, etc.). Estas
+pseudo-interfaces **replican exactamente los contadores** de la NIC física, así que
+incluirlas contamina la lista y **multiplica el agregado** por el número de capas.
+El módulo debe descartarlas quedándose **solo con las interfaces hardware**: en
+`MIB_IF_ROW2`, el campo `InterfaceAndOperStatusFlags` expone el bit
+`HardwareInterface` (bit 0); las capas de filtro lo tienen a 0. El filtrado por
+tipo/hardware se aplica **antes** que cualquier `include_interfaces`/
+`exclude_interfaces` y antes del agregado, tanto en `interfaces` como en los totales.
+
+Se descartan además: loopback (`IF_TYPE_SOFTWARE_LOOPBACK`), túneles, y las
+interfaces con `oper_status != up` **a efectos de agregado**, aunque una interfaz
+hardware seleccionada explícitamente sigue apareciendo en `interfaces`.
 
 Los filtros por defecto excluyen el ruido típico de Windows:
 `exclude_interfaces` por defecto contiene `Loopback*`, `isatap*`, `Teredo*`,
-`vEthernet*`, `VirtualBox*`, `VMware*`.
+`vEthernet*`, `VirtualBox*`, `VMware*`. (Estos patrones son una segunda red de
+seguridad; el filtro primario de "solo hardware" ya elimina las capas de filtro
+NDIS, que no se pueden distinguir de forma fiable solo por el nombre.)
 
 Igual que en ha4linux, si un delta sale negativo (reinicio de NIC o del host) se
 usa el contador absoluto como delta de esa ventana, para no publicar valores
