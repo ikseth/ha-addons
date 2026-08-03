@@ -117,7 +117,7 @@ func (a *application) Start(report func(uint32)) error {
 		}
 	}
 	report(4)
-	a.server, err = api.New(api.Options{Config: loaded.Config, Logger: a.logger})
+	a.server, err = api.New(api.Options{Config: loaded.Config, ConfigPath: loaded.Path, Logger: a.logger})
 	if err != nil {
 		return winapi.NewExitError(1, "initialize API server: %v", err)
 	}

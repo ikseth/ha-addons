@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -89,6 +90,21 @@ func Validate(cfg Config) (Validation, error) {
 	}
 	if cfg.Management.RemoteUpdate.Enabled && strings.TrimSpace(cfg.Management.RemoteUpdate.ManifestURL) == "" {
 		return Validation{}, fmt.Errorf("management.remote_update.manifest_url is required when remote update is enabled")
+	}
+	if strings.TrimSpace(cfg.Management.RemoteUpdate.Channel) == "" {
+		return Validation{}, fmt.Errorf("management.remote_update.channel must not be empty")
+	}
+	if cfg.Management.RemoteUpdate.CheckIntervalSec < 30 {
+		return Validation{}, fmt.Errorf("management.remote_update.check_interval_sec must be at least 30")
+	}
+	if cfg.Management.RemoteUpdate.CheckTimeoutSec <= 0 || cfg.Management.RemoteUpdate.ApplyTimeoutSec <= 0 || cfg.Management.RemoteUpdate.HealthCheckTimeoutSec <= 0 {
+		return Validation{}, fmt.Errorf("management.remote_update timeouts must be greater than zero")
+	}
+	if cfg.Management.RemoteUpdate.ManifestURL != "" {
+		manifestURL, err := url.Parse(cfg.Management.RemoteUpdate.ManifestURL)
+		if err != nil || (manifestURL.Scheme != "http" && manifestURL.Scheme != "https") || manifestURL.Host == "" {
+			return Validation{}, fmt.Errorf("management.remote_update.manifest_url must be an absolute HTTP or HTTPS URL")
+		}
 	}
 	if cfg.Logging.MaxSizeMB <= 0 || cfg.Logging.MaxFiles < 1 {
 		return Validation{}, fmt.Errorf("logging.max_size_mb and logging.max_files must be greater than zero")
