@@ -1,11 +1,12 @@
 # HA4Win — Workstation API para Windows
 
 Equivalente de [ha4linux](../ha4linux/) para hosts Windows: un agente local que
-expone el sistema como un **dispositivo con entidades** en Home Assistant, con el
-mismo contrato API `v1`, el mismo modelo modular de sensores/actuadores y el mismo
-mecanismo de actualización remota.
+expone el sistema como un **dispositivo con entidades** en Home Assistant, con un
+contrato API `v1` de la misma familia (extensión compatible), el mismo modelo
+modular de sensores/actuadores y el mismo mecanismo de actualización remota.
 
-> **Estado: diseño aprobado (2026-08-03), implementación pendiente.**
+> **Estado: diseño aprobado (2026-08-03) y revisado tras verificación de gaps por
+> Codex; implementación pendiente.**
 > Este directorio contiene, por ahora, solo la especificación. El encargo de
 > implementación está en [`docs/HANDOFF_CODEX.md`](docs/HANDOFF_CODEX.md).
 
@@ -24,7 +25,7 @@ supervisor. Esto elimina la mitad del empaquetado y toda la capa `bashio`.
 | Empaquetado | **El propio binario se instala** (`ha4win.exe install`) | Ningún instalador ni intérprete adicional; MSI opcional en fase 6 |
 | Integración HA | **Nueva** `custom_components/ha4win` | Riesgo cero para la flota ha4linux 0.5.15 en producción |
 | Alcance v1 | Núcleo de telemetría + energía/mantenimiento/seguridad | Sesión, mensajería y políticas de apps quedan en roadmap |
-| Contrato API | `v1` idéntico a ha4linux + campo `platform` | Una sola familia de contrato, `schema_version` 1.1 |
+| Contrato API | Extensión compatible del `v1` de ha4linux (campo `platform`, sensores y actuador propios) | Misma familia de contrato, `schema_version` 1.1 |
 
 El razonamiento completo de la elección de Go y del instalador está en
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#1-elección-de-lenguaje).

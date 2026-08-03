@@ -15,8 +15,12 @@ arranques desde snapshot Btrfs. En Windows nada de eso aplica:
 
 - El servicio corre como LocalSystem sin sandbox de sistema de ficheros.
 - **Windows permite renombrar un ejecutable en uso.** No se puede sobrescribir,
-  pero sí `MoveFileExW`. Eso da un swap atómico y un rollback triviales.
-- El SCM ya sabe parar y arrancar el servicio, y reintenta si el arranque falla.
+  pero sí `MoveFileExW`. Eso da un swap por rename y un rollback triviales.
+- El SCM ya sabe parar y arrancar el servicio, y reintenta si el arranque falla. El
+  aplicador lo gobierna con la **API SCM** (`OpenSCManager`, `OpenService`,
+  `ControlService`, `StartService`, `QueryServiceStatusEx`), **no** con `sc.exe`:
+  ejecutar procesos externos en runtime está prohibido por diseño, y esta regla no
+  admite excepción ni siquiera en el updater.
 
 El resultado es que no hace falta ningún artefacto externo: **el propio binario se
 actualiza a sí mismo**.
@@ -134,16 +138,29 @@ instalada: el downgrade no está soportado, igual que en ha4linux.
    se lanza el binario *en staging* con `update apply --from-service`, como proceso
    independiente (`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`). El servicio
    responde a Home Assistant y se prepara para morir.
-5. El proceso aplicador:
-   - `sc stop ha4win` y espera a que pare (60 s; si no para, aborta y limpia).
-   - `MoveFileExW` de `ha4win.exe` a `ha4win.exe.previous` (sustituyendo el
-     anterior `.previous` si lo hubiera).
-   - Copia el binario nuevo a `ha4win.exe`.
-   - `sc start ha4win`.
-6. **restarting → health-check** — el aplicador sondea
-   `https://127.0.0.1:<port>/health` hasta `health_check_timeout_sec` (60 s).
+5. El proceso aplicador realiza el swap. **El orden importa: primero se coloca el
+   binario nuevo en un temporal del mismo directorio, y solo al final se promueve
+   con un rename**, de modo que nunca hay una ventana sin `ha4win.exe` ni una copia
+   a medias sobre el nombre definitivo:
+   - Copia el binario validado (desde `staging\`) a
+     `Program Files\HA4Win\ha4win.exe.new` y hace *flush* a disco. Esta copia puede
+     ser parcial sin consecuencia: aún no es el ejecutable del servicio.
+   - Para el servicio con `ControlService(STOP)` y espera a `SERVICE_STOPPED` (60 s;
+     si no para, aborta, borra `.new` y deja todo como estaba).
+   - `MoveFileExW` de `ha4win.exe` → `ha4win.exe.previous` (reemplazando el
+     `.previous` anterior si lo hubiera).
+   - `MoveFileExW` de `ha4win.exe.new` → `ha4win.exe` (`MOVEFILE_REPLACE_EXISTING`).
+     Esta segunda operación es el punto de conmutación y es un rename, no una copia.
+   - `StartService`.
+   - Si el segundo `MoveFileExW` fallara, se restaura de inmediato `.previous` sobre
+     `ha4win.exe` y se arranca.
+6. **restarting → health-check** — el aplicador sondea `GET /health` sobre el **bind
+   efectivo**, no `127.0.0.1` a ciegas: si `bind_host` es `0.0.0.0` o `::` sondea
+   loopback; si es una IP concreta, sondea esa IP. Con TLS activo la sonda no valida
+   la cadena (es el propio certificado autofirmado local); solo comprueba que el
+   endpoint responde `{"status":"ok"}`. Plazo `health_check_timeout_sec` (60 s).
    - **Éxito**: actualiza `update-state.json` con `result: "success"`, conserva
-     `.previous` para un rollback manual y borra el staging.
+     `.previous` para un rollback manual y borra el staging y `.new`.
    - **Fallo**: para el servicio, restaura `.previous` sobre `ha4win.exe`, arranca
      y marca `result: "rolled_back"` con el motivo.
 7. Al arrancar, el servicio lee `update-state.json` y publica el desenlace en
@@ -152,19 +169,22 @@ instalada: el downgrade no está soportado, igual que en ha4linux.
 
 ## Flujo de `rollback`
 
-Promueve `ha4win.exe.previous` a `ha4win.exe` con el mismo mecanismo de parada,
-swap, arranque y health-check. Si no existe `.previous`, devuelve
+Promueve `ha4win.exe.previous` a `ha4win.exe` con el mismo mecanismo: copia a
+`.new`, parada por API SCM, rename del actual y promoción por `MoveFileExW`,
+arranque y health-check al bind efectivo. Si no existe `.previous`, devuelve
 `ok: false` con `"no previous version available"` sin tocar nada.
 
 ## Garantías
 
 | Garantía | Cómo |
 | --- | --- |
-| Nunca se destruye la versión en ejecución | El swap es un rename, no una sobrescritura |
-| Nunca se aplica un artefacto corrupto | `sha256` + arranque de prueba antes del swap |
-| Nunca queda un host sin servicio | Health-check con restauración automática |
+| Nunca hay una ventana sin `ha4win.exe` | El binario nuevo se coloca en `.new` y solo se conmuta con un rename final; nunca se copia sobre el nombre definitivo |
+| Nunca se destruye la versión en ejecución | El actual pasa a `.previous` por rename antes de promover el nuevo |
+| Nunca se aplica un artefacto corrupto | `sha256` + arranque de prueba (`staging\ha4win.exe version`) antes del swap |
+| Nunca queda un host sin servicio | Health-check al bind efectivo con restauración automática de `.previous` |
 | El resultado es observable tras el reinicio | `update-state.json` persistente |
 | Dos `apply` simultáneos no se pisan | Lock por fichero en `update\` con PID |
+| Ningún proceso externo en runtime | El servicio se gobierna por API SCM, no por `sc.exe` |
 
 ## Publicación de una versión
 
@@ -185,11 +205,15 @@ release sube las dos versiones aunque solo cambie una de las partes. Es lo que h
 legible la matriz de compatibilidad `min/max_integration_version` y lo que evita
 tener que razonar sobre combinaciones cruzadas al diagnosticar un host.
 
-Ambos arrancan en `0.1.0`.
+Ambos arrancan en `0.1.0`. "En paralelo" es **absoluto**: cada release sube la
+versión y actualiza el manifiesto de **ambas** partes aunque solo cambie una, sin
+excepción. Así no hay que razonar sobre combinaciones cruzadas al diagnosticar un
+host.
 
-Al publicar hay que actualizar, en el mismo commit:
+Al publicar hay que actualizar, en el mismo commit, **siempre los cinco**:
 
 - `internal/version/version.go` (o el valor inyectado por `ldflags`)
 - `ha4win/update-manifest.json`
-- `custom_components/ha4win/const.py`, `manifest.json` y `update-manifest.json` si
-  también cambia la integración
+- `custom_components/ha4win/const.py`
+- `custom_components/ha4win/manifest.json`
+- `custom_components/ha4win/update-manifest.json`

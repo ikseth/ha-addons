@@ -8,12 +8,14 @@
 
 ## 1. Verificación previa
 
-Antes de escribir una línea de código, revisa el diseño buscando **gaps, dudas y
-colisiones** y devuelve el resultado.
+**Esta verificación ya se hizo una vez** (Codex, 2026-08-03) y su resultado se
+incorporó al diseño: ver la sección 3bis, "Resolución de la verificación de gaps".
+Puedes hacer una segunda pasada de contraste, pero el grueso de gaps y colisiones ya
+está resuelto en los documentos. Céntrate en confirmar que las resoluciones son
+coherentes y en cualquier hueco nuevo.
 
 Las decisiones de diseño ya están todas cerradas (sección 4). Lo que sigue abierto
-es del entorno, no del diseño: los cuatro puntos de la sección 5 hay que resolverlos
-con el propietario antes de poder cumplir los criterios de aceptación de la fase 0.
+es del entorno, no del diseño (sección 5).
 
 Lo que se espera de esa revisión:
 
@@ -59,6 +61,42 @@ Contexto imprescindible fuera de este directorio:
 | `services.is_failed` no tenía definición precisa (Windows no tiene el `failed` de systemd) | Definición exacta en [`MODULES.md`](MODULES.md#services), excluyendo `ERROR_SERVICE_NEVER_STARTED` |
 | `POST /v1/update/apply` con `target_version` estaba en el contrato pero no en el updater | Documentado, con downgrade prohibido |
 | Versionado de agente e integración sin política | Van en paralelo, como ha4linux. Ambos arrancan en `0.1.0` |
+
+## 3bis. Resolución de la verificación de gaps (Codex, 2026-08-03)
+
+La primera pasada de verificación produjo un informe de gaps, colisiones y dudas.
+Todo lo accionable se resolvió en los documentos. Resumen de lo cerrado:
+
+**Bloqueantes documentales (resueltos):**
+
+| Tema | Dónde quedó | Resolución |
+| --- | --- | --- |
+| Reinstalar un `.exe` en uso | [INSTALLER.md](INSTALLER.md#secuencia-de-instalación), paso 5 | Instalación transaccional: temporal → parada → rename → arranque → health-check → rollback |
+| Contrato exacto del ciclo de vida SCM | [INSTALLER.md](INSTALLER.md#ciclo-de-vida-del-servicio-contrato-scm) | `BinaryPathName`, checkpoints, plazos, controles Stop/Shutdown, códigos de salida |
+| Precedencia de `--config` | [CONFIGURATION.md](CONFIGURATION.md#ubicación-y-precedencia) | `--config` > `HA4WIN_CONFIG_FILE` > default; ruta no estándar se registra en el servicio |
+
+**Colisiones corregidas:** "sin procesos externos" vs `sc.exe` en el updater → ahora
+API SCM ([UPDATER.md](UPDATER.md)); "swap atómico" reescrito a copia-a-temporal +
+`MoveFileExW`; health-check al bind efectivo, no a `127.0.0.1` ciego; `is_failed`
+con fórmula normativa única en MODULES; `power_manager` `status`/readonly coherente;
+fallback COM sin margen para dependencias externas; versionado paralelo absoluto;
+contrato redefinido como extensión compatible del v1, no idéntico.
+
+**Gaps importantes cerrados:** forma de error HTTP uniforme (incluido middleware),
+`400/405/503`; semántica de `allowed_clients` (IP del peer, sin cabeceras forwarded,
+IPv4/IPv6 desde Fase 0, evaluada antes que el token); concurrencia con `503`;
+defaults de build; merge recursivo de config con tipos inválidos fatales; perfil
+X.509 normativo del certificado.
+
+**Dudas aplicadas:** `unique_id` = `host:port` (como ha4linux); llamadas del
+coordinator en paralelo con degradación aislada; reconciliación idempotente de
+entidades; pinning opcional de huella TLS; allowlist a la IP de HA recomendada en el
+instalador; Fase 0 validada solo en amd64 (arm64/386 compile-check); pin de `x/sys`
+para el build legacy.
+
+**Decisiones de criterio tomadas con el propietario:** flags de configuración solo
+en primera instalación (`--reconfigure` para reescribir); `unique_id` = `host:port`;
+`cancel` disponible automáticamente si `restart`/`shutdown` lo están.
 
 ## 4. Decisiones cerradas
 

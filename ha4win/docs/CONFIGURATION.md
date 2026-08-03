@@ -10,9 +10,35 @@ Precedencia efectiva, de mayor a menor —la misma de ha4linux:
 2. `config.json`
 3. Valores por defecto internos
 
-La ruta se puede sobrescribir con `HA4WIN_CONFIG_FILE` o con `--config` en los
-subcomandos. El entorno existe para depuración y para escenarios de despliegue
-automatizado; el modo normal de operación es el fichero.
+La ruta del fichero se resuelve con esta precedencia, de mayor a menor:
+
+1. `--config <ruta>` (flag de subcomando)
+2. `HA4WIN_CONFIG_FILE` (entorno)
+3. Ruta por defecto `C:\ProgramData\HA4Win\config.json`
+
+Cuando se instala con `--config` no estándar, esa ruta absoluta queda **registrada
+en el servicio** (`ha4win.exe service --config "<ruta>"`, ver
+[INSTALLER.md](INSTALLER.md#ciclo-de-vida-del-servicio-contrato-scm)), de modo que
+el servicio arranca siempre leyendo el fichero correcto sin depender del entorno. El
+entorno existe para depuración y despliegue automatizado; el modo normal es el
+fichero.
+
+### Mezcla de configuración
+
+La configuración efectiva se construye así:
+
+- **Merge recursivo por hojas.** Un objeto parcial en `config.json` (p. ej.
+  `modules.network` sin `aggregate_mode`) se fusiona con los defaults hoja a hoja;
+  no reemplaza el objeto entero. Las listas **sí** se reemplazan por completo (no se
+  concatenan): `exclude_interfaces` en el fichero sustituye a la lista por defecto.
+- **Entorno por campo.** Cada hoja escalar o de lista tiene variable equivalente con
+  la regla `HA4WIN_` + ruta en mayúsculas separada por `_` (tabla más abajo). El
+  entorno pisa el valor del fichero para esa hoja concreta.
+- **Tipos y valores inválidos son fatales, no se sustituyen en silencio.** A
+  diferencia del loader de ha4linux —que degrada valores inválidos a defaults—, aquí
+  un tipo incorrecto o un enum fuera de rango **impide arrancar** con un mensaje que
+  nombra la ruta exacta. El motivo: en un servicio desatendido, un default silencioso
+  esconde un error de configuración hasta que alguien nota que el sensor no está.
 
 El fichero se lee **una vez al arrancar el servicio**. Cambiarlo requiere reiniciar
 el servicio (`ha4win.exe restart` o `sc.exe stop/start ha4win`). No hay recarga en
@@ -164,6 +190,40 @@ herencia:
 Es imprescindible: `C:\ProgramData` es legible por `Users` por defecto, y ahí viven
 el token de API y la clave privada TLS. El subcomando `config validate` comprueba
 el DACL y avisa si alguien ha restaurado la herencia.
+
+## Certificado TLS
+
+Perfil X.509 **normativo** del certificado autofirmado que genera `install` /
+`cert generate`:
+
+| Campo | Valor |
+| --- | --- |
+| Clave | ECDSA P-256 |
+| Firma | ECDSA con SHA-256 |
+| Subject / Issuer CN | hostname del equipo |
+| SAN DNS | hostname y FQDN (si el equipo está en dominio) |
+| SAN IP | todas las IPv4 e IPv6 no loopback de los adaptadores activos, más `127.0.0.1` y `::1` |
+| KeyUsage | `digitalSignature`, `keyEncipherment` |
+| ExtKeyUsage | `serverAuth` |
+| BasicConstraints | `CA:false` |
+| Validez | 10 años (`tls.self_signed.valid_days`) |
+| Formato | PEM (cert y clave en ficheros separados) |
+| Permisos de la clave | hereda el DACL de `C:\ProgramData\HA4Win` (solo SYSTEM y Administrators) |
+
+Reglas de generación y mantenimiento:
+
+- **Solo `install` y `cert generate` generan certificados.** El servicio **no**
+  genera nada al arrancar: si `tls.enabled: true` y faltan los ficheros, arranca
+  solo si `tls.self_signed.auto_generate: true` invocando la misma rutina que
+  `cert generate`; si `auto_generate: false`, **falla al arrancar** con código de
+  salida `2`. Esto evita que un servicio corriendo como LocalSystem regenere
+  material criptográfico de forma inadvertida.
+- **Caducidad o cambio de host/IP**: no hay renovación automática. `cert show`
+  reporta la huella y la fecha de caducidad; `cert generate --force` regenera el par
+  (por ejemplo tras cambiar de hostname o IP) y obliga a re-verificar la huella en
+  Home Assistant si se usa pinning.
+- La huella SHA-256 se imprime en la instalación y se consulta con `cert show` para
+  verificación fuera de banda.
 
 ## Perfiles de referencia
 

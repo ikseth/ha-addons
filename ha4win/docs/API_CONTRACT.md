@@ -1,6 +1,14 @@
 # Contrato API v1
 
-Mismo contrato que ha4linux. Las diferencias están marcadas explícitamente.
+**Extensión compatible de la familia v1 de ha4linux.** No es idéntico byte a byte:
+comparte la forma de transporte, la autenticación Bearer, el envoltorio de
+`/v1/sensors`, el patrón de `/v1/update/*` y la evaluación de compatibilidad, pero
+añade el campo `platform`, sensores nuevos (`volumes`, `maintenance`, `security`),
+campos descriptivos en `network`, un actuador distinto (`power_manager`) y nombres
+de módulo propios de Windows. Por eso declara `schema_version = 1.1`. El subconjunto
+común con ha4linux es el que permite reutilizar `api.py`/`coordinator.py`; lo que
+va más allá pertenece al esquema 1.1. Las diferencias están marcadas
+explícitamente en cada sección.
 
 ## Transporte y autenticación
 
@@ -9,9 +17,21 @@ Mismo contrato que ha4linux. Las diferencias están marcadas explícitamente.
 - `Authorization: Bearer <token>` en todos los endpoints salvo `GET /health`.
 - La comparación del token se hace en **tiempo constante** (`crypto/subtle`).
   Es una divergencia deliberada respecto de ha4linux, que usa `!=`.
+- Un token vacío en configuración impide arrancar el servicio.
+
+### Control de acceso por origen (`allowed_clients`)
+
 - Si `api.allowed_clients` no está vacío, la IP de origen debe pertenecer a alguno
   de los CIDR listados; en caso contrario se responde `403`.
-- Un token vacío en configuración impide arrancar el servicio.
+- **La allowlist se evalúa antes que el token**: un origen no permitido recibe `403`
+  sin que su cabecera `Authorization` llegue a compararse.
+- **La IP de origen es la del peer TCP de la conexión.** No se leen cabeceras
+  `X-Forwarded-For` ni `Forwarded`: el agente está pensado para acceso directo desde
+  Home Assistant, no detrás de un proxy inverso.
+- **IPv4 e IPv6 desde el primer día.** Las direcciones IPv4-mapped IPv6
+  (`::ffff:192.168.0.10`) se normalizan a su forma IPv4 antes de comparar; los
+  identificadores de zona (`fe80::1%eth0`) se descartan antes de la comparación.
+  Ambas familias se soportan en la Fase 0, no se aplazan.
 
 ## Endpoints
 
@@ -41,8 +61,22 @@ Un actuador inexistente o deshabilitado devuelve `200` con
 `{"ok": false, "error": "Actuator 'x' not available or disabled"}` — igual que
 ha4linux, para que la integración distinga "no soportado" de "fallo de transporte".
 
-Códigos HTTP: `401` token inválido, `403` cliente no permitido, `404` ruta
-desconocida, `413` cuerpo mayor de 64 KiB, `500` solo ante fallo no controlado.
+**Todas las respuestas de error usan el mismo objeto** `{"ok": false, "error": "…"}`,
+incluidas las generadas por el middleware (auth, allowlist, tamaño, ruta), no solo
+las de los handlers de negocio. Todas se sirven con `Content-Type: application/json`.
+
+Códigos HTTP:
+
+| Código | Causa |
+| --- | --- |
+| `400` | Cuerpo JSON malformado o `Content-Type` inesperado en un POST con cuerpo |
+| `401` | Token ausente o inválido |
+| `403` | Origen fuera de `allowed_clients` |
+| `404` | Ruta desconocida |
+| `405` | Método no permitido en una ruta conocida |
+| `413` | Cuerpo mayor de 64 KiB |
+| `503` | Servidor saturado: no hubo plaza de concurrencia en el plazo corto (ver *Límites operativos*) |
+| `500` | Solo ante fallo no controlado |
 
 ## GET /health
 
@@ -69,10 +103,16 @@ desconocida, `413` cuerpo mayor de 64 KiB, `500` solo ante fallo no controlado.
 }
 ```
 
-**`platform` es la única adición al esquema respecto de ha4linux**, y es la razón
-por la que `schema_version` es `1.1` y no `1.0`. Un cliente de esquema 1.0 que
-ignore el campo sigue funcionando. Cuando ha4linux añada `platform: "linux"`,
-debe declarar también `1.1`.
+`platform` es la adición al esquema respecto de ha4linux por la que
+`schema_version` es `1.1`. Un cliente de esquema 1.0 que ignore el campo sigue
+funcionando. Cuando ha4linux añada `platform: "linux"`, debe declarar también `1.1`.
+
+**Valores de `build`.** `commit`, `date` y `channel` se inyectan por `ldflags` en
+las releases. En un binario compilado sin inyección (build local de desarrollo) los
+defaults son `api_version = "0.1.0-dev"`, `commit = "unknown"`,
+`date = "unknown"`, `channel = "dev"`. `go_version` y `arch` **no** se inyectan: se
+obtienen en ejecución de `runtime.Version()` y `runtime.GOARCH`, así que siempre son
+reales aunque falten los `ldflags`.
 
 ## GET /v1/capabilities
 
@@ -86,7 +126,7 @@ debe declarar también `1.1`.
     "power_manager": {
       "actions": ["cancel", "hibernate", "lock", "restart", "shutdown", "sleep", "status"],
       "allowed_actions": ["lock", "restart"],
-      "available_actions": ["lock", "restart"],
+      "available_actions": ["lock", "restart", "cancel", "status"],
       "default_delay_seconds": 30,
       "hibernate_supported": false
     }
@@ -106,6 +146,17 @@ debe declarar también `1.1`.
 además el host puede realmente hacer (por ejemplo, `hibernate` desaparece si la
 hibernación está deshabilitada en el equipo). **La integración construye entidades
 sobre `available_actions`.**
+
+Dos acciones **no** dependen de `allowed_actions` y por eso aparecen en
+`available_actions` aunque no se configuren:
+
+- **`status`** está disponible siempre que el actuador esté registrado (es decir,
+  fuera de `readonly_mode`; con `readonly_mode: true` el actuador entero desaparece
+  de `capabilities.actuators` y `status` con él).
+- **`cancel`** está disponible automáticamente cuando `restart` o `shutdown` estén
+  permitidos: si puedes programar un apagado, puedes abortarlo. No necesita entrada
+  propia en `allowed_actions`. Si ni `restart` ni `shutdown` están permitidos,
+  `cancel` no aparece.
 
 ## GET /v1/sensors
 
@@ -255,10 +306,20 @@ punto de montaje si el volumen está montado en carpeta.
 }
 ```
 
-`is_failed` es `true` cuando el servicio está detenido y su tipo de arranque es
-automático, o cuando su `exit_code` es distinto de cero. Un servicio de la
-watchlist que no existe se omite de la lista (`exists: false`), igual que en Linux.
-La watchlist vacía deshabilita el módulo.
+`is_failed` sigue la fórmula normativa de
+[MODULES.md](MODULES.md#services) (la definición canónica está allí):
+
+```
+is_failed = estado == STOPPED
+            && start_type ∈ {auto, auto_delayed}
+            && win32_exit_code ∉ {0, 1077}
+```
+
+Un servicio detenido con arranque manual o deshabilitado **no** es un fallo. Un
+servicio de la watchlist que no existe **se omite** del array `services` (no se
+publica una entrada con `exists: false`), igual que en Linux; el campo `exists` solo
+aparece con valor `true` en los servicios sí publicados. La watchlist vacía
+deshabilita el módulo.
 
 ### `system_info`
 
@@ -378,7 +439,7 @@ Parámetros aceptados por `restart` y `shutdown`:
 {
   "ok": true,
   "allowed_actions": ["lock", "restart"],
-  "available_actions": ["lock", "restart"],
+  "available_actions": ["lock", "restart", "cancel", "status"],
   "hibernate_supported": false,
   "shutdown_pending": false,
   "active_console_session": { "session_id": 1, "user": "PC-TALLER\\ignacio", "state": "active" },
@@ -423,8 +484,13 @@ exige subir `schema_version` y ajustar `min_integration_version`.
 
 | Límite | Valor |
 | --- | --- |
-| Cuerpo máximo de petición | 64 KiB |
+| Cuerpo máximo de petición | 64 KiB (`413` si se excede) |
 | Plazo por sensor | `api.sensor_timeout_sec`, 3 s |
 | Plazo total de `/v1/sensors` | 10 s |
-| Peticiones concurrentes | 16 (`http.Server` con semáforo); el exceso espera |
+| Peticiones concurrentes | 16 (semáforo). El exceso **espera un máximo de 2 s**; si no consigue plaza, `503` |
 | Timeout de lectura/escritura HTTP | 15 s / 30 s |
+
+La espera acotada es deliberada: un semáforo tras `net/http` sin plazo dejaría
+acumularse goroutines indefinidamente bajo carga, que no es una protección real
+frente a DoS. Con el plazo, el exceso se rechaza con `503` en vez de crecer sin
+límite.

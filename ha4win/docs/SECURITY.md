@@ -56,14 +56,29 @@ Ni `powershell`, ni `wmic`, ni `netsh` en tiempo de ejecución (`netsh` solo apa
 como reserva durante la instalación). Motivos: superficie de inyección, coste,
 disponibilidad en Server Core, y que en hosts endurecidos suelen estar restringidos.
 
+### LocalSystem y el peso del token
+
+Un matiz que conviene explicitar: como el servicio corre como LocalSystem, quien
+posea el token tiene, de facto, una credencial de ejecución privilegiada sobre el
+host (apagado, y con el updater habilitado, descarga y ejecución de un binario). Ni
+TLS sin verificación ni una allowlist vacía reducen ese riesgo por sí solos. Por eso
+el instalador **recomienda por defecto** fijar `--allow` con la IP de Home Assistant
+en la instalación no silenciosa (ver
+[INSTALLER.md](INSTALLER.md#flags-de-install)): es la mitigación de mayor efecto y
+coste cero contra el movimiento lateral. La sustitución de LocalSystem por una
+cuenta de servicio virtual queda como estudio de la fase 6.
+
 ### TLS autofirmado por defecto
 
 Igual que ha4linux. La integración de HA usa `verify_ssl: false` por defecto, lo que
 significa que el cifrado protege frente a captura pasiva pero no frente a un
-atacante activo en la red local. Para entornos que lo requieran, se admite apuntar
-`tls.certfile`/`keyfile` a un certificado propio de la PKI interna y activar la
-verificación en Home Assistant. La huella SHA-256 se imprime en la instalación y se
-consulta con `ha4win.exe cert show` para verificación fuera de banda.
+atacante activo en la red local. Para entornos que lo requieran hay dos vías, no
+excluyentes: apuntar `tls.certfile`/`keyfile` a un certificado de la PKI interna y
+activar la verificación en Home Assistant, o usar el **pinning opcional de la huella
+SHA-256** del certificado autofirmado en el alta de la integración (ver
+[HA_INTEGRATION.md](HA_INTEGRATION.md#verificación-tls-y-pinning-opcional)). El
+pinning autentica el host sin necesidad de PKI y da un uso real a la huella que
+imprime `install` y muestra `ha4win.exe cert show`.
 
 ## Auditoría
 
