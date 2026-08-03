@@ -4,11 +4,30 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/ikseth/ha-addons/ha4win/internal/config"
 )
 
 type testSensor struct {
 	id      string
 	collect func(context.Context) (map[string]any, error)
+}
+
+func TestLoadRegistersPhaseTwoSensors(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Modules.SystemInfo.UpdatesEnabled = false
+	cfg.Modules.Security.Defender = false
+	loaded := Load(cfg, nil)
+	ids := loaded.SensorIDs()
+	found := map[string]bool{}
+	for _, id := range ids {
+		found[id] = true
+	}
+	for _, id := range []string{"system_info", "maintenance", "security"} {
+		if !found[id] {
+			t.Fatalf("phase two sensor %q not registered: %v", id, ids)
+		}
+	}
 }
 
 type unavailableSensor struct{ testSensor }
