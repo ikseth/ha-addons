@@ -174,10 +174,12 @@ afecta al resto. Estado confirmado sobre el ESXi el 2026-08-03:
 - **Recorte recomendado a 1 vCPU / 2 GB** para descargar el host (lo dejaría al
   ~76 %). Un Windows 10 con el agente (~15 MB RSS) va sobrado con eso. Es una
   edición del `.vmx` con la VM apagada, reversible.
-- Se enciende puntualmente para las tandas de prueba y se apaga al terminar.
+- Se enciende puntualmente para las tandas de prueba y se apaga al terminar
+  (`vim-cmd vmsvc/power.on 11` / `power.off` sobre el ESXi `.50` por clave SSH).
 - **Snapshot antes** de las fases destructivas (fase 3 `shutdown`/`restart`;
   fase 4 sabotaje del binario para forzar rollback) y restauración después.
-- Pendiente al encender: confirmar/anotar su IP en la VLAN 45.
+- **IP en la VLAN 45: `192.168.45.184`** (confirmada el 2026-08-03; es DHCP, puede
+  cambiar entre arranques — comprobar con `vim-cmd vmsvc/get.guest 11`).
 
 **Reservas (`WIN1102` / `WIN1103` / `.181`)**: puestos productivos de tres
 usuarios. Solo si `WIN1104` no estuviera disponible, y entonces **solo fuera de
@@ -188,25 +190,38 @@ alternativo, pendiente de confirmación in situ del propietario. Hasta esa
 confirmación, **ningún host físico se toca**: son puestos en producción y la
 fase 3 los apagaría.
 
-### Despliegue remoto (bucle de pruebas)
+### Despliegue remoto (bucle de pruebas) — verificado 2026-08-03
 
-No hay WinRM ni SSH en los hosts. El canal de despliegue es **SMB + Service
-Control Manager sobre MSRPC** (445/135, abiertos en todos los candidatos), el
-patrón estilo PsExec, conducido desde `nodo01`:
+No hay WinRM ni SSH en los hosts. El canal es **SMB + Service Control Manager sobre
+MSRPC** (445/135 abiertos), estilo PsExec, con la **suite Samba `net`/`smbclient`
+que ya está en `nodo01` y en `eva-02`**. Autenticación **NTLM**, con el formato
+inline `-U "RAS/<usuario>%<clave>"`. **No hace falta Kerberos ni instalar nada**
+(se comprobó que NTLM funciona y que la cuenta de dominio usada es admin local en
+WIN1104: `C$` y `ADMIN$` accesibles).
 
-1. `smbclient //HOST/C$` sube `ha4win.exe` a `C:\Windows\Temp\`.
-2. Ejecución remota **una sola vez** de `ha4win.exe install --quiet --token=…`
-   vía `net rpc service` (Samba, ya presente) o impacket (`psexec.py`/`atexec.py`,
-   a instalar). El propio `install` registra el servicio definitivo, genera el
-   certificado, aplica el DACL y arranca.
-3. A partir de ahí es un servicio normal; las actualizaciones van por
-   `/v1/update`, no por RPC.
+Flujo:
 
-Encaja con el diseño porque el binario **es su propio instalador**: el RPC solo
-lo lanza una vez. Requiere credenciales de administrador local en el destino, que
-aporta el propietario. Falta elegir el ayudante one-shot: `net rpc service` de
-Samba (sin instalar nada) o impacket en `nodo01` (más cómodo). Es una decisión de
-tooling, no de diseño.
+1. Subir el binario: `smbclient //192.168.45.184/C$ -U "RAS/<usuario>%<clave>" -c 'put ha4win.exe Windows\Temp\ha4win.exe'`.
+2. Ejecutar **una sola vez** el instalador embebido. Con la suite Samba se hace con
+   `net rpc service create/start` apuntando a un lanzador que invoque
+   `ha4win.exe install --quiet --token=…`; el propio `install` registra el servicio
+   definitivo, genera el certificado, aplica el DACL y arranca.
+3. A partir de ahí es un servicio normal; las actualizaciones van por `/v1/update`.
+
+Notas operativas y de seguridad:
+
+- **`eva-02` tiene ruta directa a la VLAN 45** (vía `192.168.50.10`) y un `smbclient`
+  moderno (4.23), así que puede desplegar sin pasar por `nodo01`.
+- **La ruta `smbclient -A <authfile>` daba `NT_STATUS_LOGON_FAILURE`** con estas
+  mismas credenciales por una peculiaridad de esa vía; usar `-U "DOM/user%pass"`
+  inline, que es lo que funciona y lo que usó el despliegue anterior.
+- El `-U ...%clave` deja la contraseña en la línea de comando (visible en `ps` del
+  host que lanza). Aceptable en la infraestructura propia; para no filtrarla a logs
+  o transcripciones, construir la cadena `-U` a partir de un fichero de credenciales
+  `600` (`/tmp/ha4win.auth` en los saltos) en lugar de teclearla.
+- **Higiene**: los logs de sesiones de Codex (`~/.codex/sessions`) contienen
+  credenciales de dominio en claro de despliegues anteriores; el propietario ya rotó
+  la contraseña. Conviene no reutilizar credenciales que hayan quedado en logs.
 
 ### Limitación aceptada: sin Windows Server moderno
 
