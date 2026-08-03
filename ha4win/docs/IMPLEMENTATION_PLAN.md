@@ -197,7 +197,7 @@ aplicaciones reversible.
 
 | Escenario | Fase | Cómo |
 | --- | --- | --- |
-| VM cliente Windows moderno (WIN110x) | 0-5 | Host de referencia. Solo fuera de horario, con snapshot |
+| VM cliente Windows moderno (WIN-TEST) | 0-5 | Host de referencia. VM de pruebas dedicada; encendida puntualmente |
 | VM cliente **sin sesión logada** (solo sesión 0) | 3 | Sustituye al servidor: valida `lock` y energía sin consola interactiva |
 | Windows Server 2016+ | — | **No disponible en el entorno.** Soporte enviado por diseño, sin validar en servidor moderno real |
 | Windows 10 sin conectividad | 2 | `updates_enabled: false`, sin COM |
@@ -224,8 +224,8 @@ Entorno de pruebas resuelto; el detalle operativo (ruta de acceso en dos saltos,
 inventario, despliegue por SMB+RPC, política de uso de los candidatos y HA de
 pruebas) está en [`HANDOFF_CODEX.md`](HANDOFF_CODEX.md#5-entorno-de-pruebas).
 
-Resumen: banco principal en una VM cliente Windows moderno de la VLAN 45
-(productiva; solo fuera de horario y con snapshot), HA de pruebas en la misma VLAN
-(`192.0.2.60`), despliegue del binario por MSRPC/SCM desde `jump-host`. No hay
+Resumen: banco principal en `WIN-TEST`, VM VMware de pruebas dedicada (apagada, se
+enciende puntualmente), HA de pruebas en la misma VLAN (`192.0.2.60`),
+despliegue del binario por MSRPC/SCM desde `jump-host`. No hay
 Windows Server moderno: su soporte se envía por diseño sin validación en servidor
 real (ver limitación aceptada en el handoff).
