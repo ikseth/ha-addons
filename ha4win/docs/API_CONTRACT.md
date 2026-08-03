@@ -306,16 +306,11 @@ punto de montaje si el volumen está montado en carpeta.
 }
 ```
 
-`is_failed` sigue la fórmula normativa de
-[MODULES.md](MODULES.md#services) (la definición canónica está allí):
-
-```
-is_failed = estado == STOPPED
-            && start_type ∈ {auto, auto_delayed}
-            && win32_exit_code ∉ {0, 1077}
-```
-
-Un servicio detenido con arranque manual o deshabilitado **no** es un fallo. Un
+`is_failed` sigue la **fórmula normativa única definida en
+[MODULES.md](MODULES.md#services)** (detenido + arranque automático +
+`win32_exit_code` distinto de `0` y de `1077`). No se reproduce aquí para evitar que
+las dos copias diverjan: MODULES es la fuente de verdad. Un servicio detenido con
+arranque manual o deshabilitado **no** es un fallo. Un
 servicio de la watchlist que no existe **se omite** del array `services` (no se
 publica una entrada con `exists: false`), igual que en Linux; el campo `exists` solo
 aparece con valor `true` en los servicios sí publicados. La watchlist vacía
