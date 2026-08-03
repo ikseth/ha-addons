@@ -41,7 +41,7 @@ La configuración efectiva se construye así:
   esconde un error de configuración hasta que alguien nota que el sensor no está.
 
 El fichero se lee **una vez al arrancar el servicio**. Cambiarlo requiere reiniciar
-el servicio (`ha4win.exe restart` o `sc.exe stop/start ha4win`). No hay recarga en
+el servicio con `ha4win.exe restart`. No hay recarga en
 caliente en el v1; el endpoint `/v1/config/*` de configuración remota declarativa
 queda como fase futura, igual que en ha4linux.
 
@@ -165,7 +165,7 @@ Reglas:
 | `api.allowed_clients` con CIDR inválido | Error fatal |
 | `tls.enabled` con ficheros inexistentes y `auto_generate: false` | Error fatal |
 | `tls.enabled` con ficheros inexistentes y `auto_generate: true` | Genera el par y continúa |
-| `tls.enabled: false` con `bind_host` distinto de `127.0.0.1` | Aviso destacado en log y Event Log |
+| `tls.enabled: false` con `bind_host` **no loopback** (fuera de `127.0.0.0/8` y `::1`) | Aviso destacado en log y Event Log |
 | `modules.services.enabled: true` con watchlist vacía | El módulo no se registra; aviso |
 | `actuators.power.allowed_actions` con acción desconocida | Error fatal (nombre mal escrito no debe degradar en silencio) |
 | `readonly_mode: true` | Ningún actuador se registra; se ignora `actuators.*` |
@@ -212,12 +212,15 @@ Perfil X.509 **normativo** del certificado autofirmado que genera `install` /
 
 Reglas de generación y mantenimiento:
 
-- **Solo `install` y `cert generate` generan certificados.** El servicio **no**
-  genera nada al arrancar: si `tls.enabled: true` y faltan los ficheros, arranca
-  solo si `tls.self_signed.auto_generate: true` invocando la misma rutina que
-  `cert generate`; si `auto_generate: false`, **falla al arrancar** con código de
-  salida `2`. Esto evita que un servicio corriendo como LocalSystem regenere
-  material criptográfico de forma inadvertida.
+- **Quién genera el certificado.** El camino normal es que lo genere `install` o
+  `cert generate`. Al arrancar, si `tls.enabled: true` y faltan los ficheros, el
+  comportamiento lo decide `tls.self_signed.auto_generate`:
+  - `auto_generate: true` (por defecto): el servicio los genera con la misma rutina
+    que `cert generate` y continúa. Es una **generación de material nuevo, nunca una
+    regeneración**: si los ficheros ya existen, no se tocan.
+  - `auto_generate: false`: el servicio **falla al arrancar** con código de salida
+    `2`, sin generar nada. Es el modo para entornos que exigen que el certificado lo
+    provea exclusivamente el instalador o una PKI externa.
 - **Caducidad o cambio de host/IP**: no hay renovación automática. `cert show`
   reporta la huella y la fecha de caducidad; `cert generate --force` regenera el par
   (por ejemplo tras cambiar de hostname o IP) y obliga a re-verificar la huella en

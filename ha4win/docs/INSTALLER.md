@@ -69,44 +69,62 @@ resumen final. Ver [SECURITY.md](SECURITY.md#endurecimiento-adicional-recomendad
 3. **Crear directorios**: `C:\Program Files\HA4Win`, `C:\ProgramData\HA4Win\{state,certs,logs,update}`.
 4. **Aplicar DACL** sobre `C:\ProgramData\HA4Win`: herencia rota, solo SYSTEM y
    Administrators (ver [CONFIGURATION.md](CONFIGURATION.md#permisos-del-fichero)).
-5. **Instalar el binario de forma transaccional** en
-   `C:\Program Files\HA4Win\ha4win.exe`. Windows no permite sobrescribir un
-   ejecutable en uso, así que la copia sigue el mismo mecanismo que el updater (ver
-   [UPDATER.md](UPDATER.md#flujo-de-apply)):
-   - Primera instalación (no existe `ha4win.exe`): copiar directamente.
-   - Reinstalación con el servicio corriendo: copiar el binario nuevo a un temporal
-     en el mismo directorio, parar el servicio y esperar a que pare (60 s; si no
-     para, abortar sin tocar nada), renombrar el actual a `ha4win.exe.previous`,
-     promover el temporal con `MoveFileExW`, y arrancar. Si el arranque o el
-     health-check fallan, restaurar `.previous` y dejar el servicio como estaba.
-   - Si el binario origen es idéntico al instalado (mismo SHA-256), se omite la
-     copia y solo se revalida el servicio.
-6. **Escribir `config.json`** con el token —generado si no se pasó— **solo si no
-   existe**. Si existe, se conserva (ver política de flags en reinstalación); con
-   `--reconfigure` se reescriben atómicamente los campos indicados por flags.
-7. **Generar certificado autofirmado** con `crypto/x509`, solo si no existe ya el
-   par (ver perfil X.509 normativo en
+A partir de aquí la instalación se estructura en dos fases para que una
+reinstalación no pueda dejar el host en un estado incoherente. **Fase de
+preparación** (no toca el servicio en marcha) y **fase de aplicación** (una sola
+transacción con parada, cambio atómico de binario + configuración + contrato SCM,
+arranque y health-check, con rollback conjunto de las tres cosas si algo falla).
+Este orden corrige el riesgo de que el servicio arrancara y superara el health-check
+con la configuración antigua antes de aplicar una nueva.
+
+### Fase de preparación (candidato)
+
+5. **Preparar el binario**: si es primera instalación, listo para copiar; si es
+   reinstalación, se coloca el binario nuevo en `ha4win.exe.new` en el directorio de
+   destino (copia parcial sin consecuencia: aún no es el ejecutable del servicio).
+   Si el origen es idéntico al instalado (mismo SHA-256), se marca "sin cambio de
+   binario".
+6. **Preparar la configuración candidata**: en primera instalación, `config.json`
+   con el token (generado si no se pasó). En reinstalación se conserva la existente,
+   salvo `--reconfigure`, que produce un `config.json` candidato con los campos de
+   los flags aplicados. **La configuración candidata se valida ahora** (misma
+   validación que `config validate`); si no es válida, se aborta **sin haber tocado
+   nada** del servicio en marcha.
+7. **Asegurar el certificado**: generar el par autofirmado con `crypto/x509` solo si
+   no existe (ver perfil X.509 normativo en
    [CONFIGURATION.md](CONFIGURATION.md#certificado-tls)). Sin OpenSSL.
-8. **Registrar el origen del Event Log** `HA4Win`.
-9. **Registrar el servicio** en el SCM con este contrato exacto:
-   - `BinaryPathName`: `"C:\Program Files\HA4Win\ha4win.exe" service`. Si se instaló
-     con `--config <ruta>` no estándar, se añade `--config "<ruta absoluta>"`.
-   - Cuenta `LocalSystem`, `SERVICE_AUTO_START`, tipo `SERVICE_WIN32_OWN_PROCESS`.
-   - Acciones de recuperación: reinicio a los 5 s / 10 s / 60 s, reset del contador
-     a las 24 h.
-   - En reinstalación se hace `ChangeServiceConfig` sobre el servicio existente en
-     lugar de recrearlo, para no perder dependencias ni ajustes manuales.
+8. **Registrar el origen del Event Log** `HA4Win` (idempotente).
+9. **Calcular el contrato SCM candidato** sin aplicarlo todavía:
+   - `BinaryPathName`: `"C:\Program Files\HA4Win\ha4win.exe" service`, con
+     `--config "<ruta absoluta>"` si se instaló con `--config` no estándar.
+   - Cuenta `LocalSystem`, `SERVICE_AUTO_START`, `SERVICE_WIN32_OWN_PROCESS`,
+     acciones de recuperación (reinicio a los 5 s / 10 s / 60 s, reset a las 24 h).
 10. **Crear la regla de firewall** de entrada para el puerto TCP, perfiles Domain y
     Private, invocando `netsh advfirewall firewall add rule` con argumentos fijos.
     Es la **única** invocación de un proceso externo en todo el producto y ocurre
-    solo durante la instalación, nunca en ejecución: la regla de "sin procesos
-    externos" acota la superficie del servicio en marcha, no la del instalador.
-    Sustituirlo por `INetFwPolicy2` (COM) queda como mejora opcional de la fase 6,
-    para no meter dependencia de COM en la fase 0.
-11. **Arrancar el servicio** salvo `--no-start` y **verificar** `GET /health` en
-    local durante 15 s.
-12. **Imprimir el resumen**: token, URL, huella SHA-256 del certificado. Es lo que
-    hay que introducir en Home Assistant.
+    solo durante la instalación, nunca en ejecución. Sustituirlo por `INetFwPolicy2`
+    (COM) queda como mejora opcional de la fase 6.
+
+### Fase de aplicación (transacción atómica)
+
+11. Con todo el candidato preparado y validado, aplicar en bloque:
+    - **Primera instalación**: copiar el binario, escribir `config.json`, crear el
+      servicio con el contrato SCM, arrancar (salvo `--no-start`).
+    - **Reinstalación**: parar el servicio y esperar a `SERVICE_STOPPED` (60 s; si no
+      para, abortar sin cambios); promover el binario (`ha4win.exe` → `.previous`,
+      `.new` → `ha4win.exe` por `MoveFileExW`) si hubo cambio; escribir el
+      `config.json` candidato si hubo `--reconfigure` (conservando copia previa);
+      aplicar el contrato SCM con `ChangeServiceConfig` sobre el servicio existente;
+      arrancar.
+12. **Health-check** `GET /health` sobre el **bind efectivo**, no `127.0.0.1` a
+    ciegas: si `bind_host` es `0.0.0.0`/`::` se sondea el loopback de la familia
+    correspondiente; si es una IP concreta, esa IP. Plazo 15 s.
+    - **Fallo**: rollback conjunto — restaurar `ha4win.exe` desde `.previous`, el
+      `config.json` previo y el `BinaryPathName`/contrato SCM anterior, y arrancar la
+      versión previa. La instalación se declara fallida con el motivo.
+13. **Imprimir el resumen**: token, URL, huella SHA-256 del certificado, y el aviso
+    de allowlist si `--allow` quedó vacío. Es lo que hay que introducir en Home
+    Assistant.
 
 Toda la secuencia es idempotente: reejecutar `install` sobre una instalación
 existente actualiza el binario y revalida el servicio sin tocar configuración ni

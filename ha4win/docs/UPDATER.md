@@ -121,9 +121,14 @@ integración pueda mostrar el motivo exacto por el que un host no puede aplicar.
 ## Flujo de `apply`
 
 `POST /v1/update/apply` acepta opcionalmente `{"target_version": "0.2.0"}`. Sin él,
-se aplica la versión del manifiesto y solo si `update_available` es `true`. Con él,
-se exige igualmente que la versión destino sea **estrictamente mayor** que la
-instalada: el downgrade no está soportado, igual que en ha4linux.
+se aplica la versión del manifiesto y solo si `update_available` es `true`. Si se
+proporciona, **debe coincidir exactamente con la versión seleccionada del manifiesto
+vigente** (el que se acaba de refrescar en el paso `check`); cualquier otro valor
+devuelve error. No hay índice histórico de artefactos: solo se puede aplicar lo que
+el manifiesto ofrece ahora. En todo caso la versión destino debe ser
+**estrictamente mayor** que la instalada: el downgrade no está soportado, igual que
+en ha4linux. El parámetro existe para confirmación explícita ("aplica exactamente
+0.2.0"), no para elegir una versión arbitraria.
 
 
 1. **check** — refresca el manifiesto y revalida el preflight.
