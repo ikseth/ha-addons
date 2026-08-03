@@ -133,6 +133,36 @@ func TestHealthAndVersionContract(t *testing.T) {
 	}
 }
 
+func TestUpdateEndpointsReplacePhaseZeroStubs(t *testing.T) {
+	server := testServer(t, nil)
+	token := "01234567890123456789012345678901"
+	status := request(server, http.MethodGet, "/v1/update/status", "192.0.2.1:1000", token)
+	var statusPayload map[string]any
+	if err := json.Unmarshal(status.Body.Bytes(), &statusPayload); err != nil {
+		t.Fatal(err)
+	}
+	if status.Code != http.StatusOK || statusPayload["state"] != "disabled" || statusPayload["supports_apply"] != false {
+		t.Fatalf("unexpected disabled update status: %d %#v", status.Code, statusPayload)
+	}
+	check := request(server, http.MethodPost, "/v1/update/check", "192.0.2.1:1000", token)
+	var checkPayload map[string]any
+	if err := json.Unmarshal(check.Body.Bytes(), &checkPayload); err != nil {
+		t.Fatal(err)
+	}
+	if check.Code != http.StatusOK || checkPayload["ok"] != false {
+		t.Fatalf("disabled check did not return a business error: %d %#v", check.Code, checkPayload)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/v1/update/apply", strings.NewReader(`{"target_version":42}`))
+	req.RemoteAddr = "192.0.2.1:1000"
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	server.dispatch(recorder, req)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("invalid update apply body returned %d: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestAllowedClientsRunsBeforeToken(t *testing.T) {
 	server := testServer(t, func(cfg *config.Config) {
 		cfg.API.AllowedClients = []string{"192.168.1.0/24"}

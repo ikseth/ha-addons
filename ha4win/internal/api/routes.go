@@ -51,7 +51,72 @@ func (s *Server) routes() map[string]route {
 				writeJSON(w, http.StatusOK, s.registry.Collect(r.Context()))
 			},
 		},
+		"/v1/update/status": {
+			method:  http.MethodGet,
+			private: true,
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				writeJSON(w, http.StatusOK, s.updates.Status(r.Context()))
+			},
+		},
+		"/v1/update/check": {
+			method:  http.MethodPost,
+			private: true,
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				writeJSON(w, http.StatusOK, s.updates.Check(r.Context()))
+			},
+		},
+		"/v1/update/apply": {
+			method:  http.MethodPost,
+			private: true,
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				target, err := decodeUpdateApply(r)
+				if err != nil {
+					writeError(w, http.StatusBadRequest, err.Error())
+					return
+				}
+				writeJSON(w, http.StatusOK, s.updates.Apply(r.Context(), target))
+			},
+		},
+		"/v1/update/rollback": {
+			method:  http.MethodPost,
+			private: true,
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				if r.ContentLength > 0 {
+					if _, err := decodeActionParameters(r); err != nil {
+						writeError(w, http.StatusBadRequest, err.Error())
+						return
+					}
+				}
+				writeJSON(w, http.StatusOK, s.updates.Rollback(r.Context()))
+			},
+		},
 	}
+}
+
+func decodeUpdateApply(r *http.Request) (string, error) {
+	if r.Body == nil || r.Body == http.NoBody || r.ContentLength == 0 {
+		return "", nil
+	}
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	var payload struct {
+		TargetVersion *string `json:"target_version"`
+	}
+	if err := decoder.Decode(&payload); err != nil {
+		return "", fmt.Errorf("request body must be a JSON object with optional target_version: %w", err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return "", fmt.Errorf("request body must contain one JSON object")
+	}
+	if payload.TargetVersion == nil {
+		return "", nil
+	}
+	value := strings.TrimSpace(*payload.TargetVersion)
+	if value == "" {
+		return "", fmt.Errorf("target_version must not be empty")
+	}
+	return value, nil
 }
 
 func (s *Server) resolveRoute(path string) (route, bool) {
@@ -161,7 +226,7 @@ func (s *Server) capabilities() map[string]any {
 		"actuator_details": s.registry.ActuatorCapabilities(),
 		"management": map[string]any{
 			"remote_update": map[string]any{
-				"enabled": false, "readonly_mode": s.cfg.ReadonlyMode,
+				"enabled": s.cfg.Management.RemoteUpdate.Enabled, "readonly_mode": s.cfg.ReadonlyMode,
 				"allow_in_readonly": s.cfg.Management.RemoteUpdate.AllowInReadonly,
 				"channel":           s.cfg.Management.RemoteUpdate.Channel,
 			},

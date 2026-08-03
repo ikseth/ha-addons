@@ -65,6 +65,6 @@ Commands:
   version                  Show build version
   config print|validate    Inspect effective configuration
   cert generate|show       Manage the TLS certificate
-  update apply|rollback    Reserved for a later phase`)
+  update apply|rollback    Apply or roll back the agent binary`)
 	fmt.Fprintln(os.Stderr)
 }
