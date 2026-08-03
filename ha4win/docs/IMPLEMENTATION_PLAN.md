@@ -244,6 +244,6 @@ pruebas) está en [`HANDOFF_CODEX.md`](HANDOFF_CODEX.md#5-entorno-de-pruebas).
 
 Resumen: banco principal en `WIN-TEST`, VM VMware de pruebas dedicada (apagada, se
 enciende puntualmente), HA de pruebas en la misma VLAN (`192.0.2.60`),
-despliegue del binario por MSRPC/SCM desde `jump-host`. No hay
+despliegue del binario por MSRPC/SCM desde `el salto de VLAN`. No hay
 Windows Server moderno: su soporte se envía por diseño sin validación en servidor
 real (ver limitación aceptada en el handoff).

@@ -122,45 +122,32 @@ Los nueve puntos que quedaban abiertos se resolvieron con el propietario el
 No hay ruta directa desde el equipo de desarrollo. El acceso es en dos saltos:
 
 ```
-equipo de desarrollo → root@198.51.100.40 (dev-jump) → root@192.0.2.9 (jump-host) → VLAN 45
+equipo de desarrollo → root@198.51.100.40 (el salto de desarrollo) → root@192.0.2.9 (el salto de VLAN) → VLAN 45
 ```
 
-`jump-host` está en `vlan45` y tiene `nmap` y la suite Samba (`smbclient`,
+`el salto de VLAN` está en `vlan45` y tiene `nmap` y la suite Samba (`smbclient`,
 `rpcclient`, `net`). Los hosts Windows viven en `192.0.2.0/24`, dominio
 `example.local`.
 
 ### Home Assistant de pruebas
 
-`192.0.2.60` — instancia de Home Assistant ("ha-test"), VM VirtualBox,
+`192.0.2.60` — instancia de Home Assistant ("el HA de pruebas"), VM VirtualBox,
 activa. **Está dentro de la VLAN 45**, la misma que los hosts Windows: la
 conectividad HA→agente por el puerto 8099 (fase 5) es intra-subred, sin
 enrutado ni cortafuegos de por medio. Es el HA contra el que se valida la
 integración.
 
-### Inventario (escaneado el 2026-08-03)
+### Inventario del entorno
 
-Gestión del hipervisor: **ESXi en `192.0.2.50`**, accesible por **clave SSH
-desde `jump-host`** (sin contraseña, ya configurado). Consultable con `vim-cmd` y
-`esxcli`. Es la vía para encender/apagar WIN-TEST y ajustar sus recursos. El host
-tiene 4 cores × 3504 MHz y 32 GB; con las 3 VM de usuario en marcha está al ~70 %
-de RAM y ~61 % de CPU.
+Gestión del hipervisor: **un host ESXi** (`192.0.2.50`), accesible por clave SSH
+desde el salto de la VLAN de pruebas. Consultable con `vim-cmd`/`esxcli`; es la vía
+para encender/apagar la VM de pruebas y ajustar sus recursos.
 
-| IP | Nombre | Tipo | Sistema | Valoración |
-| --- | --- | --- | --- | --- |
-| *(al encender)* | **WIN-TEST** (vmid 11) | **VM VMware, apagada** | Windows 10 64-bit, 2 vCPU / 4 GB | **Banco principal.** VM de pruebas dedicada, no productiva. Enciende sin cambios; recorte a 1 vCPU/2 GB recomendado para descargar el host |
-| .181 | *(sin nombre publicado)* | VM VMware | Windows moderno, SMBv1 desactivado | Reserva productiva (solo fuera de horario) |
-| .182 | WIN-B | VM VMware | Windows moderno, SMBv1 desactivado | Reserva productiva (solo fuera de horario) |
-| .183 | WIN-C | VM VMware | Windows moderno, SMBv1 desactivado | Reserva productiva (solo fuera de horario) |
-| .30 | legacy-server | VM VirtualBox | Windows Server 2008 R2 SP1 | Solo validación del build legacy (fase 6) |
-| .102 | host-a | Físico (Dell) | Windows 7 Pro SP1 | Producción. No tocar |
-| .101 | host-b | Físico | Windows moderno | Producción. No tocar |
-| .104 | host-c | Físico | Windows moderno | Producción. No tocar |
-| .185 | host-d | Físico | Windows moderno | Producción. No tocar |
-| .107, .110, .115, .200 | DESKTOP-* | Físicos | Windows moderno | Producción. No tocar |
-| .186, .187 | *(sin nombre)* | Físicos | Windows moderno | Producción. No tocar |
-| .20, .21 | nas-host | NAS | Samba 4.15.13 | No es Windows |
-| .22 | \_\_SAMBA\_\_ | — | Samba | No es Windows |
-| .108, .175 | host-e, — | — | Sin identificar | Descartados |
+Banco de pruebas: **una VM Windows dedicada** (Windows 10/11 64-bit, unida a un
+dominio de laboratorio), **no productiva**, en la VLAN de pruebas. El resto de hosts
+de la VLAN (puestos y servidores reales) **no se tocan**. Detalles concretos del
+entorno (IPs, nombres e inventario) se mantienen fuera de este documento por ser un
+repositorio público; se resuelven en la sesión de trabajo.
 
 ### Política de uso de los candidatos
 
@@ -194,7 +181,7 @@ fase 3 los apagaría.
 
 No hay WinRM ni SSH en los hosts. El canal es **SMB + Service Control Manager sobre
 MSRPC** (445/135 abiertos), estilo PsExec, con la **suite Samba `net`/`smbclient`
-que ya está en `jump-host` y en `dev-jump`**. Autenticación **NTLM**, con el formato
+que ya está en `el salto de VLAN` y en `el salto de desarrollo`**. Autenticación **NTLM**, con el formato
 inline `-U "EXAMPLE/<usuario>%<clave>"`. **No hace falta Kerberos ni instalar nada**
 (se comprobó que NTLM funciona y que la cuenta de dominio usada es admin local en
 WIN-TEST: `C$` y `ADMIN$` accesibles).
@@ -210,8 +197,8 @@ Flujo:
 
 Notas operativas y de seguridad:
 
-- **`dev-jump` tiene ruta directa a la VLAN 45** (vía `198.51.100.10`) y un `smbclient`
-  moderno (4.23), así que puede desplegar sin pasar por `jump-host`.
+- **`el salto de desarrollo` tiene ruta directa a la VLAN 45** (vía `198.51.100.10`) y un `smbclient`
+  moderno (4.23), así que puede desplegar sin pasar por `el salto de VLAN`.
 - **La ruta `smbclient -A <authfile>` daba `NT_STATUS_LOGON_FAILURE`** con estas
   mismas credenciales por una peculiaridad de esa vía; usar `-U "DOM/user%pass"`
   inline, que es lo que funciona y lo que usó el despliegue anterior.
@@ -235,7 +222,7 @@ consecuencia:
 - El caso "sin sesión de consola interactiva" de la matriz se cubre en una VM
   cliente **sin ningún usuario logado** (solo sesión 0), que ejercita la misma
   ruta de código relevante para `lock` y para las acciones de energía.
-- `legacy-server` (2008 R2) cubre la validación del build legacy de la fase 6.
+- un Windows Server 2008 R2 del entorno cubre la validación del build legacy de la fase 6.
 
 ### Pendiente de confirmar al tomar posesión del host
 

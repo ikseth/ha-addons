@@ -14,13 +14,13 @@ func TestTokenMatches(t *testing.T) {
 }
 
 func TestPeerAllowedIPv4IPv6AndMapped(t *testing.T) {
-	prefixes, err := ParseAllowedClients([]string{"198.51.100.0/24", "2001:db8:abcd::/48"})
+	prefixes, err := ParseAllowedClients([]string{"192.0.2.0/24", "2001:db8:abcd::/48"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	cases := map[string]bool{
-		"198.51.100.4:1234":          true,
-		"[::ffff:198.51.100.4]:1234": true,
+		"192.0.2.4:1234":          true,
+		"[::ffff:192.0.2.4]:1234": true,
 		"[2001:db8:abcd::5]:1234":    true,
 		"[2001:db8::5]:1234":         false,
 		"192.168.51.4:1234":          false,
