@@ -1,0 +1,55 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HA4Win",
+        "description": "Conecta Home Assistant con un endpoint de la API HA4Win.",
+        "data": {
+          "host": "Host",
+          "port": "Puerto",
+          "token": "Token de API",
+          "use_https": "Usar HTTPS",
+          "verify_ssl": "Verificar el certificado SSL",
+          "tls_fingerprint_sha256": "Huella SHA-256 del certificado TLS (opcional)",
+          "scan_interval": "Intervalo de sondeo (segundos)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No se puede conectar",
+      "invalid_auth": "Autenticación no válida",
+      "access_denied": "La dirección de Home Assistant no está permitida por el agente",
+      "invalid_fingerprint": "La huella TLS no es válida o no coincide",
+      "wrong_platform": "Este agente no es Windows. Usa la integración HA4Linux para hosts Linux.",
+      "unknown": "Error inesperado"
+    },
+    "abort": {
+      "already_configured": "Este host y puerto ya están configurados"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones de HA4Win",
+        "data": {
+          "host": "Host",
+          "port": "Puerto",
+          "token": "Token de API",
+          "use_https": "Usar HTTPS",
+          "verify_ssl": "Verificar el certificado SSL",
+          "tls_fingerprint_sha256": "Huella SHA-256 del certificado TLS (opcional)",
+          "scan_interval": "Intervalo de sondeo (segundos)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No se puede conectar",
+      "invalid_auth": "Autenticación no válida",
+      "access_denied": "La dirección de Home Assistant no está permitida por el agente",
+      "invalid_fingerprint": "La huella TLS no es válida o no coincide",
+      "wrong_platform": "Este agente no es Windows. Usa la integración HA4Linux para hosts Linux.",
+      "already_configured": "Este host y puerto ya están configurados",
+      "unknown": "Error inesperado"
+    }
+  }
+}
