@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -99,8 +100,23 @@ func (l *Logger) AuditRejection(peer, path, reason string) {
 	l.Warning(fmt.Sprintf("request rejected: peer=%s path=%s reason=%s", peer, path, reason))
 }
 
+func (l *Logger) AuditActuator(peer, actuator, action string, params map[string]any) {
+	encoded, err := json.Marshal(params)
+	if err != nil {
+		encoded = []byte(`{"unavailable":true}`)
+	}
+	l.writeMessage("INFO", fmt.Sprintf(
+		"actuator action requested: peer=%s actuator=%s action=%s params=%s",
+		peer, actuator, action, encoded,
+	), true)
+}
+
 func (l *Logger) write(level, message string) {
-	if !enabled(l.options.Level, level) {
+	l.writeMessage(level, message, false)
+}
+
+func (l *Logger) writeMessage(level, message string, force bool) {
+	if !force && !enabled(l.options.Level, level) {
 		return
 	}
 	line := fmt.Sprintf("%s %-7s %s\n", time.Now().UTC().Format(time.RFC3339), level, sanitize(message))

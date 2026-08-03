@@ -3,12 +3,14 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ikseth/ha-addons/ha4win/internal/actuators/power"
 	"github.com/ikseth/ha-addons/ha4win/internal/config"
 	"github.com/ikseth/ha-addons/ha4win/internal/registry"
 )
@@ -65,6 +67,41 @@ func (apiTestSensor) Collect(context.Context) (map[string]any, error) {
 	return map[string]any{"value": 1}, nil
 }
 
+type apiTestActuator struct{}
+
+func (apiTestActuator) ID() string { return "sample_actuator" }
+func (apiTestActuator) Describe() map[string]any {
+	return map[string]any{"actions": []string{"run"}, "available_actions": []string{"run"}}
+}
+func (apiTestActuator) Execute(_ context.Context, action string, params map[string]any) (map[string]any, error) {
+	return map[string]any{"action": action, "value": params["value"]}, nil
+}
+
+type apiTestLogger struct {
+	audits []string
+}
+
+type apiPowerSource struct{}
+
+func (apiPowerSource) Available() (bool, string) { return true, "" }
+func (apiPowerSource) ActiveConsoleSession() (*power.Session, error) {
+	return &power.Session{SessionID: 1, State: "active"}, nil
+}
+func (apiPowerSource) DisconnectSession(uint32) error                    { return nil }
+func (apiPowerSource) HibernateSupported() (bool, error)                 { return false, nil }
+func (apiPowerSource) Suspend(bool, bool) error                          { return nil }
+func (apiPowerSource) ScheduleShutdown(bool, uint32, bool, string) error { return nil }
+func (apiPowerSource) AbortShutdown() error                              { return nil }
+func (apiPowerSource) PendingReboot() (bool, error)                      { return false, nil }
+
+func (*apiTestLogger) Info(string)                           {}
+func (*apiTestLogger) Warning(string)                        {}
+func (*apiTestLogger) Error(string)                          {}
+func (*apiTestLogger) AuditRejection(string, string, string) {}
+func (logger *apiTestLogger) AuditActuator(peer, actuator, action string, _ map[string]any) {
+	logger.audits = append(logger.audits, fmt.Sprintf("%s:%s:%s", peer, actuator, action))
+}
+
 func request(server *Server, method, path, peer, token string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, nil)
 	req.RemoteAddr = peer
@@ -118,5 +155,70 @@ func TestUniformErrorsAndBodyLimit(t *testing.T) {
 	var payload errorResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil || payload.OK || payload.Error == "" {
 		t.Fatalf("non-canonical error: err=%v payload=%+v", err, payload)
+	}
+}
+
+func TestActuatorEndpointAndCapabilities(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.API.Token = "01234567890123456789012345678901"
+	cfg.TLS.Enabled = false
+	cfg.API.BindHost = "127.0.0.1"
+	modules := registry.New(time.Second, nil)
+	modules.RegisterActuator(apiTestActuator{})
+	server, err := New(Options{Config: cfg, Registry: modules})
+	if err != nil {
+		t.Fatal(err)
+	}
+	unauthorized := request(server, http.MethodPost, "/v1/actuators/sample_actuator/run", "192.0.2.1:1000", "")
+	if unauthorized.Code != http.StatusUnauthorized {
+		t.Fatalf("actuator without token returned %d", unauthorized.Code)
+	}
+
+	capabilities := request(server, http.MethodGet, "/v1/capabilities", "192.0.2.1:1000", cfg.API.Token)
+	var capabilityPayload struct {
+		Actuators       []string                  `json:"actuators"`
+		ActuatorDetails map[string]map[string]any `json:"actuator_details"`
+	}
+	if err := json.Unmarshal(capabilities.Body.Bytes(), &capabilityPayload); err != nil {
+		t.Fatal(err)
+	}
+	if len(capabilityPayload.Actuators) != 1 || capabilityPayload.Actuators[0] != "sample_actuator" || capabilityPayload.ActuatorDetails["sample_actuator"] == nil {
+		t.Fatalf("unexpected capabilities: %#v", capabilityPayload)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/actuators/sample_actuator/run", strings.NewReader(`{"value":42}`))
+	req.RemoteAddr = "192.0.2.1:1000"
+	req.Header.Set("Authorization", "Bearer "+cfg.API.Token)
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	server.dispatch(recorder, req)
+	var result map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if recorder.Code != http.StatusOK || result["ok"] != true || result["action"] != "run" || result["value"] != float64(42) {
+		t.Fatalf("unexpected actuator result: %d %#v", recorder.Code, result)
+	}
+}
+
+func TestPowerActuatorAuditUsesPeerIP(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.API.Token = "01234567890123456789012345678901"
+	cfg.TLS.Enabled = false
+	cfg.API.BindHost = "127.0.0.1"
+	modules := registry.New(time.Second, nil)
+	modules.RegisterActuator(power.New([]string{"lock"}, 30, apiPowerSource{}))
+	logger := &apiTestLogger{}
+	server, err := New(Options{Config: cfg, Registry: modules, Logger: logger})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/v1/actuators/power_manager/lock", nil)
+	req.RemoteAddr = "[2001:db8::1]:1234"
+	req.Header.Set("Authorization", "Bearer "+cfg.API.Token)
+	recorder := httptest.NewRecorder()
+	server.dispatch(recorder, req)
+	if recorder.Code != http.StatusOK || len(logger.audits) != 1 || logger.audits[0] != "2001:db8::1:power_manager:lock" {
+		t.Fatalf("response=%d audits=%#v", recorder.Code, logger.audits)
 	}
 }

@@ -29,6 +29,7 @@ type AuditLogger interface {
 	Warning(string)
 	Error(string)
 	AuditRejection(peer, path, reason string)
+	AuditActuator(peer, actuator, action string, params map[string]any)
 }
 
 type Options struct {
@@ -161,7 +162,7 @@ func (s *Server) dispatch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	route, found := s.routes()[r.URL.Path]
+	route, found := s.resolveRoute(r.URL.Path)
 	if !found {
 		writeError(w, http.StatusNotFound, "route not found")
 		return
