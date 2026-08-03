@@ -101,9 +101,15 @@ integración.
 
 ### Inventario (escaneado el 2026-08-03)
 
+Gestión del hipervisor: **ESXi en `192.168.45.50`**, accesible por **clave SSH
+desde `nodo01`** (sin contraseña, ya configurado). Consultable con `vim-cmd` y
+`esxcli`. Es la vía para encender/apagar WIN1104 y ajustar sus recursos. El host
+tiene 4 cores × 3504 MHz y 32 GB; con las 3 VM de usuario en marcha está al ~70 %
+de RAM y ~61 % de CPU.
+
 | IP | Nombre | Tipo | Sistema | Valoración |
 | --- | --- | --- | --- | --- |
-| *(por asignar)* | **WIN1104** | **VM VMware, apagada** | Windows moderno | **Banco principal.** VM creada para pruebas, no productiva |
+| *(al encender)* | **WIN1104** (vmid 11) | **VM VMware, apagada** | Windows 10 64-bit, 2 vCPU / 4 GB | **Banco principal.** VM de pruebas dedicada, no productiva. Enciende sin cambios; recorte a 1 vCPU/2 GB recomendado para descargar el host |
 | .181 | *(sin nombre publicado)* | VM VMware | Windows moderno, SMBv1 desactivado | Reserva productiva (solo fuera de horario) |
 | .182 | WIN1102 | VM VMware | Windows moderno, SMBv1 desactivado | Reserva productiva (solo fuera de horario) |
 | .183 | WIN1103 | VM VMware | Windows moderno, SMBv1 desactivado | Reserva productiva (solo fuera de horario) |
@@ -123,18 +129,17 @@ integración.
 **Banco principal: `WIN1104`.** VM VMware creada expresamente como máquina de
 pruebas, hoy apagada para descargar el servidor. Es el candidato preferente
 justamente porque **no es productiva**: evita la restricción de horario que sí
-afecta al resto. Consideraciones de uso:
+afecta al resto. Estado confirmado sobre el ESXi el 2026-08-03:
 
-- Se enciende puntualmente para las tandas de prueba y se apaga al terminar, para
-  no cargar el host VMware de forma permanente.
-- Puede requerir **ajustar sus recursos asignados** (vCPU/RAM) antes de
-  encenderla, según la holgura del servidor VMware en ese momento. El agente en sí
-  es ligero (~15 MB RSS), así que un dimensionamiento modesto basta.
-- Aun siendo de pruebas, conviene **snapshot antes** de las fases destructivas
-  (fase 3 `shutdown`/`restart`; fase 4 sabotaje del binario para forzar rollback) y
-  restauración después: es más rápido que reinstalar.
-- Pendiente al tomar posesión: asignarle/confirmar su IP en la VLAN 45 y anotarla
-  aquí.
+- Windows 10 64-bit, **2 vCPU / 4 GB**, apagada. Enciende **sin cambios**: sus
+  4 GB entran en los ~9.6 GB libres del host (quedaría al ~82 % de RAM).
+- **Recorte recomendado a 1 vCPU / 2 GB** para descargar el host (lo dejaría al
+  ~76 %). Un Windows 10 con el agente (~15 MB RSS) va sobrado con eso. Es una
+  edición del `.vmx` con la VM apagada, reversible.
+- Se enciende puntualmente para las tandas de prueba y se apaga al terminar.
+- **Snapshot antes** de las fases destructivas (fase 3 `shutdown`/`restart`;
+  fase 4 sabotaje del binario para forzar rollback) y restauración después.
+- Pendiente al encender: confirmar/anotar su IP en la VLAN 45.
 
 **Reservas (`WIN1102` / `WIN1103` / `.181`)**: puestos productivos de tres
 usuarios. Solo si `WIN1104` no estuviera disponible, y entonces **solo fuera de
