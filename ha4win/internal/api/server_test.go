@@ -1,13 +1,16 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ikseth/ha-addons/ha4win/internal/config"
+	"github.com/ikseth/ha-addons/ha4win/internal/registry"
 )
 
 func testServer(t *testing.T, mutate func(*config.Config)) *Server {
@@ -24,6 +27,42 @@ func testServer(t *testing.T, mutate func(*config.Config)) *Server {
 		t.Fatal(err)
 	}
 	return server
+}
+
+func TestSensorsAndCapabilitiesContract(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.API.Token = "01234567890123456789012345678901"
+	cfg.TLS.Enabled = false
+	cfg.API.BindHost = "127.0.0.1"
+	modules := registry.New(time.Second, nil)
+	modules.RegisterSensor(apiTestSensor{})
+	server, err := New(Options{Config: cfg, Registry: modules})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sensors := request(server, http.MethodGet, "/v1/sensors", "192.0.2.1:1000", cfg.API.Token)
+	var sensorPayload map[string]registry.SensorResult
+	if err := json.Unmarshal(sensors.Body.Bytes(), &sensorPayload); err != nil {
+		t.Fatal(err)
+	}
+	if sensors.Code != http.StatusOK || !sensorPayload["sample"].Enabled || !sensorPayload["sample"].Available {
+		t.Fatalf("unexpected sensor response: %d %#v", sensors.Code, sensorPayload)
+	}
+	capabilities := request(server, http.MethodGet, "/v1/capabilities", "192.0.2.1:1000", cfg.API.Token)
+	var capabilityPayload map[string]any
+	if err := json.Unmarshal(capabilities.Body.Bytes(), &capabilityPayload); err != nil {
+		t.Fatal(err)
+	}
+	if capabilities.Code != http.StatusOK || capabilityPayload["platform"] != "windows" || capabilityPayload["transport"] != "http" {
+		t.Fatalf("unexpected capabilities response: %d %#v", capabilities.Code, capabilityPayload)
+	}
+}
+
+type apiTestSensor struct{}
+
+func (apiTestSensor) ID() string { return "sample" }
+func (apiTestSensor) Collect(context.Context) (map[string]any, error) {
+	return map[string]any{"value": 1}, nil
 }
 
 func request(server *Server, method, path, peer, token string) *httptest.ResponseRecorder {

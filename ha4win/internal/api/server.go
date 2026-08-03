@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ikseth/ha-addons/ha4win/internal/config"
+	"github.com/ikseth/ha-addons/ha4win/internal/registry"
 )
 
 const (
@@ -31,8 +32,9 @@ type AuditLogger interface {
 }
 
 type Options struct {
-	Config config.Config
-	Logger AuditLogger
+	Config   config.Config
+	Logger   AuditLogger
+	Registry *registry.Registry
 }
 
 type StartErrorKind int
@@ -60,6 +62,7 @@ type Server struct {
 	sem      chan struct{}
 	done     chan error
 	stopOnce sync.Once
+	registry *registry.Registry
 }
 
 func New(options Options) (*Server, error) {
@@ -67,12 +70,17 @@ func New(options Options) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	modules := options.Registry
+	if modules == nil {
+		modules = registry.Load(options.Config, options.Logger)
+	}
 	server := &Server{
-		cfg:     options.Config,
-		logger:  options.Logger,
-		allowed: allowed,
-		sem:     make(chan struct{}, maxConcurrent),
-		done:    make(chan error, 1),
+		cfg:      options.Config,
+		logger:   options.Logger,
+		allowed:  allowed,
+		sem:      make(chan struct{}, maxConcurrent),
+		done:     make(chan error, 1),
+		registry: modules,
 	}
 	server.http = &http.Server{
 		Addr:              net.JoinHostPort(options.Config.API.BindHost, strconv.Itoa(options.Config.API.BindPort)),
