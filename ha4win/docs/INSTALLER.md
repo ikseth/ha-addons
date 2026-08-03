@@ -35,13 +35,30 @@ ha4win.exe update rollback
 | `--token <valor>` | — | Token de API. Si se omite, se genera uno de 32 bytes y se imprime |
 | `--port <n>` | `8099` | Puerto de escucha |
 | `--bind <ip>` | `0.0.0.0` | Dirección de escucha |
-| `--allow <cidr,...>` | vacío | Allowlist de clientes |
+| `--allow <cidr,...>` | vacío | Allowlist de clientes. **Recomendado** fijar la IP de Home Assistant (ver nota de seguridad más abajo) |
 | `--no-tls` | — | Desactiva TLS. Exige confirmación o `--force` |
 | `--no-firewall` | — | No crea la regla de firewall |
 | `--no-start` | — | Instala sin arrancar (equivalente al `--no-start` de ha4linux) |
-| `--config <ruta>` | `C:\ProgramData\HA4Win\config.json` | Ruta alternativa |
+| `--config <ruta>` | `C:\ProgramData\HA4Win\config.json` | Ruta alternativa del `config.json` |
 | `--san <host,ip>` | hostname + IPs locales | SAN adicionales del certificado |
+| `--reconfigure` | — | Permite que los flags reescriban un `config.json` existente (ver política de reinstalación) |
 | `--quiet` | — | Salida mínima, apta para despliegue desatendido |
+
+**Política de flags en reinstalación.** Los flags de configuración (`--token`,
+`--port`, `--bind`, `--allow`, `--san`, `--no-tls`) **solo se aplican en la primera
+instalación**. Si ya existe `config.json`, se conserva intacto y los flags de
+configuración se **ignoran con un aviso explícito** que nombra cada flag ignorado.
+Para reconfigurar en una reinstalación hay que pasar `--reconfigure`, que reescribe
+de forma atómica solo los campos indicados. Es la política predecible: reinstalar
+para actualizar el binario nunca cambia la configuración por sorpresa. Los flags
+operativos (`--no-start`, `--no-firewall`, `--quiet`, `--config`) sí se respetan
+siempre, porque afectan a la acción de instalar, no al contenido de la config.
+
+**Seguridad — allowlist recomendada.** En instalación no silenciosa, si `--allow`
+está vacío el instalador **avisa** de que la API quedará accesible desde cualquier
+origen de la red y **recomienda** limitarla a la IP de Home Assistant. No lo impone
+(no siempre se conoce la IP en el momento de instalar), pero lo deja anotado en el
+resumen final. Ver [SECURITY.md](SECURITY.md#endurecimiento-adicional-recomendado).
 
 ## Secuencia de instalación
 
@@ -52,15 +69,33 @@ ha4win.exe update rollback
 3. **Crear directorios**: `C:\Program Files\HA4Win`, `C:\ProgramData\HA4Win\{state,certs,logs,update}`.
 4. **Aplicar DACL** sobre `C:\ProgramData\HA4Win`: herencia rota, solo SYSTEM y
    Administrators (ver [CONFIGURATION.md](CONFIGURATION.md#permisos-del-fichero)).
-5. **Copiar el binario** a `C:\Program Files\HA4Win\ha4win.exe`. Si ya existe una
-   instalación, se conserva el `config.json` existente.
-6. **Escribir `config.json`** con el token —generado si no se pasó— si no existe ya.
-7. **Generar certificado autofirmado** con `crypto/x509`: clave ECDSA P-256, SAN con
-   hostname, FQDN e IPs locales, validez 10 años. Sin OpenSSL.
+5. **Instalar el binario de forma transaccional** en
+   `C:\Program Files\HA4Win\ha4win.exe`. Windows no permite sobrescribir un
+   ejecutable en uso, así que la copia sigue el mismo mecanismo que el updater (ver
+   [UPDATER.md](UPDATER.md#flujo-de-apply)):
+   - Primera instalación (no existe `ha4win.exe`): copiar directamente.
+   - Reinstalación con el servicio corriendo: copiar el binario nuevo a un temporal
+     en el mismo directorio, parar el servicio y esperar a que pare (60 s; si no
+     para, abortar sin tocar nada), renombrar el actual a `ha4win.exe.previous`,
+     promover el temporal con `MoveFileExW`, y arrancar. Si el arranque o el
+     health-check fallan, restaurar `.previous` y dejar el servicio como estaba.
+   - Si el binario origen es idéntico al instalado (mismo SHA-256), se omite la
+     copia y solo se revalida el servicio.
+6. **Escribir `config.json`** con el token —generado si no se pasó— **solo si no
+   existe**. Si existe, se conserva (ver política de flags en reinstalación); con
+   `--reconfigure` se reescriben atómicamente los campos indicados por flags.
+7. **Generar certificado autofirmado** con `crypto/x509`, solo si no existe ya el
+   par (ver perfil X.509 normativo en
+   [CONFIGURATION.md](CONFIGURATION.md#certificado-tls)). Sin OpenSSL.
 8. **Registrar el origen del Event Log** `HA4Win`.
-9. **Registrar el servicio** en el SCM: arranque automático, cuenta LocalSystem,
-   descripción, y acciones de recuperación (reinicio a los 5 s / 10 s / 60 s con
-   reset del contador a las 24 h).
+9. **Registrar el servicio** en el SCM con este contrato exacto:
+   - `BinaryPathName`: `"C:\Program Files\HA4Win\ha4win.exe" service`. Si se instaló
+     con `--config <ruta>` no estándar, se añade `--config "<ruta absoluta>"`.
+   - Cuenta `LocalSystem`, `SERVICE_AUTO_START`, tipo `SERVICE_WIN32_OWN_PROCESS`.
+   - Acciones de recuperación: reinicio a los 5 s / 10 s / 60 s, reset del contador
+     a las 24 h.
+   - En reinstalación se hace `ChangeServiceConfig` sobre el servicio existente en
+     lugar de recrearlo, para no perder dependencias ni ajustes manuales.
 10. **Crear la regla de firewall** de entrada para el puerto TCP, perfiles Domain y
     Private, invocando `netsh advfirewall firewall add rule` con argumentos fijos.
     Es la **única** invocación de un proceso externo en todo el producto y ocurre
@@ -74,7 +109,29 @@ ha4win.exe update rollback
     hay que introducir en Home Assistant.
 
 Toda la secuencia es idempotente: reejecutar `install` sobre una instalación
-existente actualiza el binario y el servicio sin tocar configuración ni certificado.
+existente actualiza el binario y revalida el servicio sin tocar configuración ni
+certificado (salvo `--reconfigure`).
+
+## Ciclo de vida del servicio (contrato SCM)
+
+`ha4win.exe service` es el punto de entrada que el SCM invoca. Contrato:
+
+- **Directorio de trabajo**: irrelevante; todas las rutas del agente son absolutas.
+- **Arranque**: reporta `SERVICE_START_PENDING` con checkpoints incrementales
+  mientras carga configuración, valida y abre el listener TLS; luego
+  `SERVICE_RUNNING`. Plazo de arranque anunciado al SCM: 30 s. Si la validación de
+  configuración falla, registra el motivo en el Event Log y sale con código ≠ 0, y
+  el SCM aplica la política de recuperación.
+- **Controles admitidos**: `SERVICE_CONTROL_STOP` y `SERVICE_CONTROL_SHUTDOWN`
+  disparan un apagado ordenado del servidor HTTP (`http.Server.Shutdown` con
+  drenaje de peticiones en curso, plazo 10 s) antes de reportar `SERVICE_STOPPED`.
+  Plazo de parada anunciado: 15 s.
+- **Códigos de salida** (para `run`/`service` fuera del SCM y para diagnóstico):
+  `0` salida limpia; `1` error de configuración; `2` error de TLS/certificado;
+  `3` puerto en uso; `4` invocado como `service` fuera del contexto del SCM.
+- **`ha4win.exe run`** ejecuta el mismo servidor en primer plano con log a consola,
+  sin hablar con el SCM; es la vía de depuración y **no** cumple el preflight del
+  updater (que exige ejecución bajo el SCM).
 
 ## Desinstalación
 
@@ -103,6 +160,14 @@ declara *best effort*: se publica sin garantía de validación en hardware real.
 
 Arquitecturas: `amd64` (principal), `arm64` (Windows on ARM), `386` (equipos
 antiguos de 32 bits).
+
+**Alcance de validación por arquitectura.** La Fase 0 se da por soportada
+**funcionalmente solo en amd64 moderno**. `arm64` y `386` se compilan como
+comprobación de que el código es portable, pero su validación funcional no es
+requisito de cierre de las fases 0–5. El build legacy (Go 1.20.14) queda para la
+fase 6 y **fija una versión máxima de `golang.org/x/sys`** compatible con ese
+toolchain: el `go.mod` de la rama principal usa la `x/sys` actual y la rama legacy
+la reduce a la última compatible con Go 1.20, en artefactos separados.
 
 ## Build
 

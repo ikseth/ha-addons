@@ -200,23 +200,31 @@ motivo, sin afectar a firewall ni al resto del sensor.
 
 | Acción | API | Privilegio | Notas |
 | --- | --- | --- | --- |
-| `status` | `WTSEnumerateSessionsW`, registro | — | Nunca bloqueado por `readonly_mode` |
+| `status` | `WTSEnumerateSessionsW`, registro | — | Disponible siempre que el actuador esté registrado |
 | `lock` | `WTSDisconnectSession` | — | Sobre la sesión de consola activa. Ver semántica en [API_CONTRACT.md](API_CONTRACT.md#post-v1actuatorspower_manageraction) |
 | `sleep` | `SetSuspendState(FALSE, force, FALSE)` (powrprof) | — | |
 | `hibernate` | `SetSuspendState(TRUE, force, FALSE)` | — | Solo si la hibernación está habilitada; si no, no aparece en `available_actions` |
 | `restart` | `InitiateSystemShutdownExW(..., reboot=TRUE)` | `SE_SHUTDOWN_NAME` | Con cuenta atrás cancelable |
 | `shutdown` | `InitiateSystemShutdownExW(..., reboot=FALSE)` | `SE_SHUTDOWN_NAME` | |
-| `cancel` | `AbortSystemShutdown` | `SE_SHUTDOWN_NAME` | Cancela la cuenta atrás en curso |
+| `cancel` | `AbortSystemShutdown` | `SE_SHUTDOWN_NAME` | Disponible automáticamente si `restart` o `shutdown` lo están |
 
 El privilegio `SE_SHUTDOWN_NAME` lo tiene LocalSystem pero está deshabilitado por
 defecto en el token: hay que habilitarlo con `AdjustTokenPrivileges` justo antes de
 la llamada y volver a deshabilitarlo después.
 
-`allowed_actions` por defecto: `["lock"]`. Todo lo demás requiere habilitación
-explícita en configuración, en la misma línea que `poweroff`/`reset` de VirtualBox
-en ha4linux. `status` está siempre disponible.
+Disponibilidad de acciones:
 
-Con `readonly_mode: true` el actuador no se registra en absoluto.
+- `allowed_actions` por defecto: `["lock"]`. Las acciones que alteran el estado
+  (`sleep`, `hibernate`, `restart`, `shutdown`) requieren habilitación explícita en
+  configuración, en la misma línea que `poweroff`/`reset` de VirtualBox en ha4linux.
+- **`cancel`** no se configura por separado: está disponible en cuanto `restart` o
+  `shutdown` lo estén. Poder programar un apagado implica poder abortarlo.
+- **`status`** está disponible siempre que el actuador esté registrado, es decir,
+  fuera de `readonly_mode`.
+- Con **`readonly_mode: true` el actuador no se registra en absoluto**: no aparece en
+  `capabilities.actuators` y ninguna acción —tampoco `status`— es invocable. No hay
+  contradicción con "status siempre disponible": `status` lo está mientras el
+  actuador exista, y en readonly no existe.
 
 Se registra en el Event Log toda acción que altere el estado del equipo, con la IP
 de origen y la acción solicitada.

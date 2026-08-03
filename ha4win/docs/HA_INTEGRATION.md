@@ -42,13 +42,26 @@ v1 porque no hay actuadores de estado binario.
 
 ## Ciclo del coordinator
 
-Por cada refresco: `capabilities`, `version`, `sensors`, `update/status`. Si
-`power_manager` está en `capabilities.actuators`, además `power_manager/status`.
-Es el mismo patrón del coordinator de ha4linux.
+Por cada refresco se consultan `capabilities`, `version`, `sensors`,
+`update/status` y, si `power_manager` está en `capabilities.actuators`,
+`power_manager/status`.
 
-Las entidades se crean **una sola vez**, a partir de las capacidades y del payload
-del primer refresco. Un módulo que aparece más tarde requiere recargar la entrada,
-igual que en ha4linux.
+**Se ejecutan en paralelo, no en serie.** El coordinator de ha4linux las encadena
+secuencialmente; aquí se lanzan concurrentemente (`asyncio.gather`) por tres
+motivos: menos latencia por ciclo, menos entradas de autenticación en el Event Log
+del host, y **aislamiento de fallos** — un error en `update/status` no debe
+invalidar la telemetría de `sensors`. Cada respuesta se degrada por separado: si
+`update/status` falla, la entidad `update` queda no disponible pero los sensores
+siguen actualizándose.
+
+Las entidades se crean a partir de las capacidades y del primer payload, y después
+se **reconcilian de forma idempotente** en cada refresco: si cambia la firma de
+`capabilities` o las listas dinámicas (interfaces, volúmenes, servicios), se añaden
+las entidades nuevas sin duplicar las existentes. **No se eliminan automáticamente**
+las que dejen de aparecer —pasan a `unavailable`, misma decisión que en
+`amcrest_smd`— para no perder su historial ante un fallo transitorio del módulo. Un
+cambio estructural mayor (un módulo entero que aparece o desaparece) sigue
+resolviéndose limpiamente con una recarga de la entrada, igual que en ha4linux.
 
 ## Dispositivo
 
@@ -183,8 +196,24 @@ El `config_flow` valida contra `GET /v1/version` y **rechaza la entrada si
 `platform != "windows"`**, con un mensaje que remite a la integración ha4linux. Es
 la protección barata contra apuntar la integración equivocada a un host.
 
-`unique_id` de la entrada: `system_info.hostname` en minúsculas, o `host:port` si no
-está disponible.
+`unique_id` de la entrada: **`host:port`**, igual que la integración ha4linux. El
+hostname no sirve como identificador —no es único entre redes, puede repetirse en
+clones y cambia al renombrar el equipo—; se usa solo como nombre visible del
+dispositivo. `host:port` es estable frente a esos casos y mantiene la simetría con
+Linux. (Si en el futuro se quisiera un identificador inmune también al cambio de IP,
+el agente podría exponer un ID persistente generado en la instalación; queda como
+mejora, no es necesario para el v1.)
+
+### Verificación TLS y pinning (opcional)
+
+Por defecto `Verify SSL` está desactivado, porque el certificado es autofirmado: el
+cifrado protege frente a captura pasiva pero no autentica al host ante un atacante
+activo. Para entornos que lo requieran, además de apuntar el agente a un certificado
+de PKI interna y activar `Verify SSL`, la integración admite **pinning opcional de
+la huella SHA-256** del certificado autofirmado: se introduce en el alta (la imprime
+`install` y la muestra `ha4win.exe cert show`) y el cliente rechaza la conexión si
+la huella no coincide. Es la forma de autenticar el host sin una PKI, y hace que la
+huella impresa en la instalación tenga un uso real, no solo informativo.
 
 ## Convergencia futura
 

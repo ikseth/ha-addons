@@ -32,18 +32,30 @@ Aplican a todas las fases y no se repiten en cada una:
 - `internal/setup`: directorios, DACL, certificado autofirmado, alta del servicio,
   regla de firewall, Event Log; y su reverso en `uninstall`.
 - `internal/api`: servidor `net/http` con TLS, auth Bearer en tiempo constante,
-  `allowed_clients`, límites de cuerpo y timeouts.
+  `allowed_clients` (IPv4 **e IPv6** desde ya, evaluada antes que el token, sobre la
+  IP del peer TCP), límites de cuerpo, timeouts y semáforo de concurrencia con `503`.
 - Endpoints `GET /health` y `GET /v1/version`.
-- `internal/version` con valores inyectados por `ldflags`.
+- `internal/version` con valores inyectados por `ldflags` y defaults de desarrollo.
+- Instalación transaccional y contrato SCM según
+  [INSTALLER.md](INSTALLER.md#ciclo-de-vida-del-servicio-contrato-scm).
 - `build/build.sh` con la matriz `amd64`/`arm64`/`386`.
+
+**Alcance de validación**: la Fase 0 se valida **funcionalmente en amd64 moderno**.
+`arm64` y `386` deben **compilar** (comprobación de portabilidad), pero su
+validación funcional no es criterio de cierre.
 
 **Aceptación**
 
 - `ha4win.exe install --port 8099` en un Windows limpio deja el servicio corriendo
   y arranca solo tras reiniciar el equipo.
+- Reejecutar `install` sobre una instalación con el servicio corriendo actualiza el
+  binario (parada → swap por rename → arranque → health-check) sin dejar el host sin
+  `ha4win.exe` y sin tocar `config.json` salvo `--reconfigure`.
 - `curl -k https://<host>:8099/health` responde `{"status":"ok"}`.
 - `/v1/version` sin token devuelve 401; con token correcto devuelve el payload
   completo incluido `platform: "windows"`.
+- Con `allowed_clients` fijado, un origen fuera de la lista recibe `403` antes de
+  evaluar el token, y funciona tanto para un cliente IPv4 como IPv6.
 - Un usuario estándar **no** puede leer `C:\ProgramData\HA4Win\config.json`.
 - `uninstall` deja el sistema sin servicio, sin regla de firewall y sin origen de
   Event Log.
@@ -82,9 +94,12 @@ Aplican a todas las fases y no se repiten en cada una:
 
 **Antes de integrar nada**: *spike* aislado de interoperabilidad COM que valide, en
 un Windows real, una búsqueda WUA y una consulta WMI a `MSFT_MpComputerStatus`
-usando solo `golang.org/x/sys/windows`. Si el spike no sale limpio, se decide ahí
-—no después— si se acepta una dependencia externa acotada. **Este es el mayor
-riesgo técnico del proyecto y se ataca primero.**
+usando solo `golang.org/x/sys/windows`. **Este es el mayor riesgo técnico del
+proyecto y se ataca primero.** La regla de decisión es la ya cerrada, sin margen
+para reabrirla: si el spike no sale limpio y claramente testeable en Go puro, se
+aplica el fallback aprobado —`updates_provider: disabled` y `security` reducido a
+Firewall + UAC por registro— y se posponen WUA/Defender/BitLocker. **No se acepta
+ninguna dependencia externa nueva**; `golang.org/x/sys` sigue siendo la única.
 
 - `internal/winapi/com` con la interop mínima.
 - Proveedor de actualizaciones tras interfaz, con valor `disabled`.
@@ -178,10 +193,13 @@ riesgo técnico del proyecto y se ataca primero.**
 
 ## Fase 6 — Endurecimiento y distribución
 
-- `api.allowed_clients` verificado con IPv6.
 - `require_signed_asset` con `WinVerifyTrust`.
 - Firma Authenticode en el pipeline de build (`osslsigncode`).
-- Build legacy con Go 1.20.14 para Windows 7/8.1/Server 2012 R2.
+- Build legacy con Go 1.20.14 para Windows 7/8.1/Server 2012 R2, **fijando la
+  versión máxima de `golang.org/x/sys`** compatible con ese toolchain en artefactos
+  separados de la rama principal.
+- Validación funcional de `arm64` y `386` (en Fase 0 solo se exige que compilen).
+- Pinning opcional de huella TLS en la integración (autenticación del host sin PKI).
 - Evaluación de cuenta de servicio virtual `NT SERVICE\ha4win` en sustitución de
   LocalSystem, condicionada a que WUA y el SCM sigan funcionando.
 - MSI opcional con WiX v5 para GPO/Intune.
