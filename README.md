@@ -4,6 +4,9 @@ Repository with Home Assistant related components, including:
 
 - Custom integration: `custom_components/ha4linux`
 - Add-on and Linux client API: `ha4linux/`
+- Custom integration: `custom_components/ha4win`
+- Windows client agent (Go): `ha4win/`
+- Custom integration: `custom_components/amcrest_smd`
 
 ## HACS Setup (Integration)
 

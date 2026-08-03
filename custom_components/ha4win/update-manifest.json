@@ -1,0 +1,6 @@
+{
+  "version": "0.1.0",
+  "release_url": "https://github.com/ikseth/ha-addons/tree/main/custom_components/ha4win",
+  "download_url": "https://github.com/ikseth/ha-addons/archive/refs/heads/main.zip",
+  "notes": "Initial HA4Win Home Assistant integration for the v1 Windows agent API."
+}

@@ -1,0 +1,55 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HA4Win",
+        "description": "Connect Home Assistant to a HA4Win API endpoint.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "token": "API token",
+          "use_https": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate",
+          "tls_fingerprint_sha256": "TLS certificate SHA-256 fingerprint (optional)",
+          "scan_interval": "Scan interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect",
+      "invalid_auth": "Invalid authentication",
+      "access_denied": "This Home Assistant address is not allowed by the agent",
+      "invalid_fingerprint": "The TLS fingerprint is invalid or does not match",
+      "wrong_platform": "This is not a Windows agent. Use the HA4Linux integration for Linux hosts.",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This host and port are already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HA4Win options",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "token": "API token",
+          "use_https": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate",
+          "tls_fingerprint_sha256": "TLS certificate SHA-256 fingerprint (optional)",
+          "scan_interval": "Scan interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect",
+      "invalid_auth": "Invalid authentication",
+      "access_denied": "This Home Assistant address is not allowed by the agent",
+      "invalid_fingerprint": "The TLS fingerprint is invalid or does not match",
+      "wrong_platform": "This is not a Windows agent. Use the HA4Linux integration for Linux hosts.",
+      "already_configured": "This host and port are already configured",
+      "unknown": "Unexpected error"
+    }
+  }
+}
