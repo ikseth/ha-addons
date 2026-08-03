@@ -3,6 +3,7 @@ package registry
 import (
 	"time"
 
+	"github.com/ikseth/ha-addons/ha4win/internal/actuators/power"
 	"github.com/ikseth/ha-addons/ha4win/internal/config"
 	"github.com/ikseth/ha-addons/ha4win/internal/sensors/cpu"
 	"github.com/ikseth/ha-addons/ha4win/internal/sensors/maintenance"
@@ -15,6 +16,12 @@ import (
 )
 
 func Load(cfg config.Config, logger Logger) *Registry {
+	return load(cfg, logger, func(allowed []string, delay int) Actuator {
+		return power.New(allowed, delay, nil)
+	})
+}
+
+func load(cfg config.Config, logger Logger, newPower func([]string, int) Actuator) *Registry {
 	registry := New(time.Duration(cfg.API.SensorTimeoutSec)*time.Second, logger)
 	if cfg.Modules.CPU.Enabled {
 		registry.RegisterSensor(cpu.New(cfg.Modules.CPU.PerCore, nil))
@@ -60,6 +67,12 @@ func Load(cfg config.Config, logger Logger) *Registry {
 			BitLocker:       cfg.Modules.Security.BitLocker,
 			RefreshInterval: time.Duration(cfg.Modules.Security.RefreshIntervalSec) * time.Second,
 		}, nil))
+	}
+	if !cfg.ReadonlyMode && cfg.Actuators.Power.Enabled {
+		registry.RegisterActuator(newPower(
+			cfg.Actuators.Power.AllowedActions,
+			cfg.Actuators.Power.DefaultDelaySeconds,
+		))
 	}
 	return registry
 }

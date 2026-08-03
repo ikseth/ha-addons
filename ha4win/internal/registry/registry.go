@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+var (
+	ErrActuatorNotFound = errors.New("actuator not found")
+	ErrActuatorPanic    = errors.New("actuator panic")
+)
+
 type Logger interface {
 	Info(string)
 }
@@ -21,17 +26,23 @@ type SensorResult struct {
 }
 
 type Registry struct {
-	mu      sync.RWMutex
-	sensors map[string]Sensor
-	timeout time.Duration
-	logger  Logger
+	mu        sync.RWMutex
+	sensors   map[string]Sensor
+	actuators map[string]Actuator
+	timeout   time.Duration
+	logger    Logger
 }
 
 func New(timeout time.Duration, logger Logger) *Registry {
 	if timeout <= 0 {
 		timeout = 3 * time.Second
 	}
-	return &Registry{sensors: make(map[string]Sensor), timeout: timeout, logger: logger}
+	return &Registry{
+		sensors:   make(map[string]Sensor),
+		actuators: make(map[string]Actuator),
+		timeout:   timeout,
+		logger:    logger,
+	}
 }
 
 func (r *Registry) RegisterSensor(sensor Sensor) bool {
@@ -63,6 +74,35 @@ func (r *Registry) RegisterSensor(sensor Sensor) bool {
 	return true
 }
 
+func (r *Registry) RegisterActuator(actuator Actuator) bool {
+	if actuator == nil {
+		return false
+	}
+	id := actuator.ID()
+	if id == "" {
+		r.log("Skipping actuator with empty ID")
+		return false
+	}
+	if probe, ok := actuator.(Probe); ok {
+		available, reason := safeProbe(probe)
+		if !available {
+			if reason == "" {
+				reason = "prerequisite is not available"
+			}
+			r.log(fmt.Sprintf("Skipping actuator %q: %s", id, reason))
+			return false
+		}
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, exists := r.actuators[id]; exists {
+		r.log(fmt.Sprintf("Skipping duplicate actuator %q", id))
+		return false
+	}
+	r.actuators[id] = actuator
+	return true
+}
+
 func safeProbe(probe Probe) (available bool, reason string) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -82,6 +122,71 @@ func (r *Registry) SensorIDs() []string {
 	r.mu.RUnlock()
 	sort.Strings(ids)
 	return ids
+}
+
+func (r *Registry) ActuatorIDs() []string {
+	r.mu.RLock()
+	ids := make([]string, 0, len(r.actuators))
+	for id := range r.actuators {
+		ids = append(ids, id)
+	}
+	r.mu.RUnlock()
+	sort.Strings(ids)
+	return ids
+}
+
+func (r *Registry) ActuatorCapabilities() map[string]any {
+	r.mu.RLock()
+	actuators := make(map[string]Actuator, len(r.actuators))
+	for id, actuator := range r.actuators {
+		actuators[id] = actuator
+	}
+	r.mu.RUnlock()
+
+	details := make(map[string]any, len(actuators))
+	for id, actuator := range actuators {
+		description, err := describeActuator(actuator)
+		if err != nil {
+			r.log(fmt.Sprintf("Actuator %q description failed: %v", id, err))
+			details[id] = map[string]any{"available": false, "reason": err.Error()}
+			continue
+		}
+		details[id] = description
+	}
+	return details
+}
+
+func describeActuator(actuator Actuator) (description map[string]any, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("%w: %v", ErrActuatorPanic, recovered)
+		}
+	}()
+	description = actuator.Describe()
+	if description == nil {
+		description = map[string]any{}
+	}
+	return description, nil
+}
+
+func (r *Registry) ExecuteActuator(ctx context.Context, id, action string, params map[string]any) (result map[string]any, err error) {
+	r.mu.RLock()
+	actuator, exists := r.actuators[id]
+	r.mu.RUnlock()
+	if !exists {
+		return nil, fmt.Errorf("%w: %s", ErrActuatorNotFound, id)
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("%w: %v", ErrActuatorPanic, recovered)
+			result = nil
+		}
+	}()
+	result, err = actuator.Execute(ctx, action, params)
+	if result == nil && err == nil {
+		result = map[string]any{}
+	}
+	return result, err
 }
 
 func (r *Registry) Collect(ctx context.Context) map[string]SensorResult {
