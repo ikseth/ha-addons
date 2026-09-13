@@ -1,0 +1,6 @@
+{
+  "version": "0.1.0",
+  "release_url": "https://github.com/ikseth/ha-addons/tree/main/custom_components/cec_tv",
+  "download_url": "https://github.com/ikseth/ha-addons/archive/refs/heads/main.zip",
+  "notes": "Initial release. One switch per TV, controlled and read over HDMI-CEC through the Kodi addon script.cec.control (0.2.0 or later)."
+}

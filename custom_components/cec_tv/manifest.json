@@ -1,0 +1,14 @@
+{
+  "domain": "cec_tv",
+  "name": "CEC TV",
+  "version": "0.1.0",
+  "documentation": "https://github.com/ikseth/ha-addons/blob/main/custom_components/cec_tv/docs/DESIGN.md",
+  "issue_tracker": "https://github.com/ikseth/ha-addons/issues",
+  "codeowners": [
+    "@ikseth"
+  ],
+  "config_flow": true,
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "requirements": []
+}
