@@ -7,6 +7,7 @@ Repository with Home Assistant related components, including:
 - Custom integration: `custom_components/ha4win`
 - Windows client agent (Go): `ha4win/`
 - Custom integration: `custom_components/amcrest_smd`
+- Custom integration: `custom_components/cec_tv` (TV control and real power state over HDMI-CEC through Kodi; manual install, see its `docs/DESIGN.md`)
 
 ## HACS Setup (Integration)
 
