@@ -32,8 +32,27 @@
           "token": "Token API",
           "use_https": "Usar HTTPS",
           "verify_ssl": "Verificar certificado SSL",
-          "scan_interval": "Intervalo de sondeo (segundos)"
+          "scan_interval": "Intervalo de sondeo (segundos)",
+          "notify_system_updates": "Notificar actualizaciones del sistema (notificacion persistente)"
+        },
+        "data_description": {
+          "notify_system_updates": "Crea una notificacion persistente cuando este equipo tiene paquetes pendientes de actualizar. Desactivala para seguir las actualizaciones con las entidades en un dashboard."
         }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "system_updates_available": {
+        "name": "Actualizaciones del sistema disponibles"
+      }
+    },
+    "sensor": {
+      "system_updates_hosts_with_updates": {
+        "name": "Equipos con actualizaciones del sistema"
+      },
+      "system_updates_pending_total": {
+        "name": "Actualizaciones del sistema pendientes"
       }
     }
   }
