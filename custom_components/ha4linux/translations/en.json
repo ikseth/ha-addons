@@ -1,0 +1,59 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HA4Linux",
+        "description": "Connect Home Assistant with a HA4Linux API endpoint.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "token": "API token",
+          "use_https": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect",
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This host is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HA4Linux options",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "token": "API token",
+          "use_https": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate",
+          "scan_interval": "Scan interval (seconds)",
+          "notify_system_updates": "Notify system updates (persistent notification)"
+        },
+        "data_description": {
+          "notify_system_updates": "Creates a persistent notification when this host has pending package updates. Disable it to follow updates from the dashboard entities instead."
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "system_updates_available": {
+        "name": "System updates available"
+      }
+    },
+    "sensor": {
+      "system_updates_hosts_with_updates": {
+        "name": "Hosts with system updates"
+      },
+      "system_updates_pending_total": {
+        "name": "Pending system updates"
+      }
+    }
+  }
+}

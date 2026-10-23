@@ -12,20 +12,37 @@ from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import config_validation as cv, device_registry as dr, entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .api import HA4LinuxApiClient, HA4LinuxApiError, HA4LinuxNotSupportedError
 from .const import (
     CONF_HOST,
+    CONF_NOTIFY_SYSTEM_UPDATES,
     CONF_PORT,
+    DEFAULT_NOTIFY_SYSTEM_UPDATES,
     DEPRECATED_ENTITY_UNIQUE_IDS,
     CONF_TOKEN,
     CONF_USE_HTTPS,
     CONF_VERIFY_SSL,
     DOMAIN,
+    SIGNAL_SYSTEM_UPDATES,
 )
 from .coordinator import HA4LinuxCoordinator
+from .hub import release_hub_owner
+from .system_updates import (
+    notification_message,
+    notification_signature,
+    should_notify,
+    system_info_payload,
+)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH, Platform.BUTTON, Platform.UPDATE]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.SWITCH,
+    Platform.BUTTON,
+    Platform.UPDATE,
+]
 _SYSTEM_UPDATES_NOTIFICATION_PREFIX = f"{DOMAIN}_system_updates"
 _SERVICE_SEND_MESSAGE = "send_message"
 _SERVICES_REGISTERED_KEY = "_services_registered"
@@ -74,11 +91,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     @callback
     def _handle_coordinator_update() -> None:
         hass.async_create_task(_async_sync_system_updates_notification(hass, entry, coordinator))
+        async_dispatcher_send(hass, SIGNAL_SYSTEM_UPDATES)
 
     entry.async_on_unload(coordinator.async_add_listener(_handle_coordinator_update))
+    entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     hass.async_create_task(_async_remove_deprecated_entities_later(hass, entry))
+    async_dispatcher_send(hass, SIGNAL_SYSTEM_UPDATES)
     return True
 
 
@@ -88,7 +108,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         persistent_notification.async_dismiss(hass, _system_updates_notification_id(entry))
         hass.data[DOMAIN].pop(entry.entry_id, None)
         _async_unregister_services_if_unused(hass)
+        async_dispatcher_send(hass, SIGNAL_SYSTEM_UPDATES)
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    release_hub_owner(hass, entry)
+
+
+async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Apply changed options (connection, interval, notifications) without restarting."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def _async_register_services(hass: HomeAssistant) -> None:
@@ -337,78 +367,8 @@ def _system_updates_notification_id(entry: ConfigEntry) -> str:
     return f"{_SYSTEM_UPDATES_NOTIFICATION_PREFIX}_{entry.entry_id}"
 
 
-def _system_info_payload(data: dict[str, object] | None) -> dict[str, object]:
-    if not isinstance(data, dict):
-        return {}
-
-    sensors = data.get("sensors", {})
-    if not isinstance(sensors, dict):
-        return {}
-
-    module = sensors.get("system_info", {})
-    if not isinstance(module, dict):
-        return {}
-
-    payload = module.get("data", {})
-    return payload if isinstance(payload, dict) else {}
-
-
-def _notification_signature(payload: dict[str, object]) -> tuple[object, ...]:
-    packages = payload.get("updates_packages", [])
-    package_signature: tuple[str, ...] = ()
-    if isinstance(packages, list):
-        package_signature = tuple(
-            str(item.get("raw") or item.get("name") or "")
-            for item in packages
-            if isinstance(item, dict)
-        )
-
-    return (
-        payload.get("updates_pending_count"),
-        payload.get("updates_last_checked_at"),
-        payload.get("distribution"),
-        payload.get("package_manager"),
-        package_signature,
-    )
-
-
-def _build_system_updates_message(entry: ConfigEntry, payload: dict[str, object]) -> str:
-    host = str(entry.options.get(CONF_HOST, entry.data.get(CONF_HOST, "linux"))).strip() or "linux"
-    distribution = str(payload.get("distribution") or "Linux").strip()
-    package_manager = str(payload.get("package_manager") or "unknown").strip()
-    checked_at = str(payload.get("updates_last_checked_at") or "unknown").strip()
-    pending_count = int(payload.get("updates_pending_count") or 0)
-    packages = payload.get("updates_packages", [])
-
-    lines = [
-        f"Host: `{host}`",
-        f"Distribution: `{distribution}`",
-        f"Package manager: `{package_manager}`",
-        f"Pending updates: `{pending_count}`",
-        f"Last checked at: `{checked_at}`",
-    ]
-
-    if isinstance(packages, list) and packages:
-        lines.append("")
-        lines.append("Preview:")
-        for item in packages:
-            if not isinstance(item, dict):
-                continue
-            name = str(item.get("name") or "package").strip()
-            candidate_version = str(item.get("candidate_version") or "").strip()
-            if candidate_version:
-                lines.append(f"- `{name}` -> `{candidate_version}`")
-            else:
-                lines.append(f"- `{name}`")
-
-    if bool(payload.get("updates_packages_truncated", False)):
-        total = int(payload.get("updates_packages_total") or pending_count)
-        shown = len(packages) if isinstance(packages, list) else 0
-        remaining = max(total - shown, 0)
-        if remaining > 0:
-            lines.append(f"- ... and `{remaining}` more packages")
-
-    return "\n".join(lines)
+def _notify_system_updates_enabled(entry: ConfigEntry) -> bool:
+    return bool(entry.options.get(CONF_NOTIFY_SYSTEM_UPDATES, DEFAULT_NOTIFY_SYSTEM_UPDATES))
 
 
 async def _async_sync_system_updates_notification(
@@ -420,30 +380,28 @@ async def _async_sync_system_updates_notification(
     if not isinstance(entry_state, dict):
         return
 
-    payload = _system_info_payload(coordinator.data)
+    payload = system_info_payload(coordinator.data)
     notification_id = _system_updates_notification_id(entry)
 
-    state = str(payload.get("updates_state") or "").strip().lower()
-    should_notify = (
-        bool(payload.get("updates_enabled", False))
-        and bool(payload.get("updates_supported", False))
-        and state == "idle"
-        and int(payload.get("updates_pending_count") or 0) > 0
-    )
+    if not _notify_system_updates_enabled(entry):
+        # Idempotent: also clears a notification left over from before the option was disabled.
+        persistent_notification.async_dismiss(hass, notification_id)
+        entry_state["system_updates_notification_signature"] = None
+        return
 
-    if not should_notify:
+    if not should_notify(payload):
         if entry_state.get("system_updates_notification_signature") is not None:
             persistent_notification.async_dismiss(hass, notification_id)
             entry_state["system_updates_notification_signature"] = None
         return
 
-    signature = _notification_signature(payload)
+    signature = notification_signature(payload)
     if signature == entry_state.get("system_updates_notification_signature"):
         return
 
     persistent_notification.async_create(
         hass,
-        _build_system_updates_message(entry, payload),
+        notification_message(_entry_host(entry) or "linux", payload),
         title="HA4Linux system updates available",
         notification_id=notification_id,
     )
