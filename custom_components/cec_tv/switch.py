@@ -71,6 +71,9 @@ class CecTvSwitch(CoordinatorEntity[CecTvCoordinator], SwitchEntity):
             "pending_command": tracker.pending,
             "unavailable_reason": tracker.unavailable_reason,
             "addon_version": self.coordinator.addon_version,
+            # Addon 0.3.0+: si lo que muestra el televisor es este Kodi (yes/no/unknown).
+            "kodi_active_source": snapshot.kodi_active if snapshot else None,
+            "active_source": (snapshot.active_source or None) if snapshot else None,
         }
 
     async def async_turn_on(self, **kwargs: Any) -> None:

@@ -33,8 +33,16 @@ PROP_TV_POWER_TS = "cec.tv_power_ts"
 PROP_ERROR = "cec.error"
 PROP_DEVICE = "cec.device"
 PROP_POLL_INTERVAL = "cec.poll_interval"
+# Addon 0.3.0+ (compatible con el protocolo 1: con un addon anterior llegan vacias).
+PROP_ACTIVE_SOURCE = "cec.active_source"
+PROP_KODI_ACTIVE = "cec.kodi_active_source"
 PROPERTIES = (PROP_PROTOCOL, PROP_TV_POWER, PROP_TV_POWER_TS, PROP_ERROR,
-              PROP_DEVICE, PROP_POLL_INTERVAL)
+              PROP_DEVICE, PROP_POLL_INTERVAL, PROP_ACTIVE_SOURCE, PROP_KODI_ACTIVE)
+
+KODI_ACTIVE_YES = "yes"
+KODI_ACTIVE_NO = "no"
+KODI_ACTIVE_UNKNOWN = "unknown"
+_KODI_ACTIVE_VALUES = (KODI_ACTIVE_YES, KODI_ACTIVE_NO, KODI_ACTIVE_UNKNOWN)
 
 DEFAULT_POLL_INTERVAL = 30
 
@@ -68,6 +76,8 @@ class Snapshot:
     error: str
     device: str
     poll_interval: int
+    active_source: str = ""
+    kodi_active: str = KODI_ACTIVE_UNKNOWN
 
     @classmethod
     def from_labels(cls, result: dict[str, str]) -> "Snapshot":
@@ -83,6 +93,9 @@ class Snapshot:
             device=get(PROP_DEVICE),
             poll_interval=_as_int(get(PROP_POLL_INTERVAL), DEFAULT_POLL_INTERVAL)
             or DEFAULT_POLL_INTERVAL,
+            active_source=get(PROP_ACTIVE_SOURCE),
+            kodi_active=kodi if (kodi := get(PROP_KODI_ACTIVE)) in _KODI_ACTIVE_VALUES
+            else KODI_ACTIVE_UNKNOWN,
         )
 
 

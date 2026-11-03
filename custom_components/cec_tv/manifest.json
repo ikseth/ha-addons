@@ -1,7 +1,7 @@
 {
   "domain": "cec_tv",
   "name": "CEC TV",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "documentation": "https://github.com/ikseth/ha-addons/blob/main/custom_components/cec_tv/docs/DESIGN.md",
   "issue_tracker": "https://github.com/ikseth/ha-addons/issues",
   "codeowners": [
