@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Conversación IA_NEST",
+        "description": "Conecta un agente de conversación solo de texto al borde IA_NEST. La verificación TLS siempre usa la raíz de confianza pegada.",
+        "data": {
+          "url": "URL base del borde (HTTPS)",
+          "api_key": "Clave de API",
+          "ca_pem": "Certificado PEM de la raíz de confianza",
+          "menu_entry": "Entrada del menú del borde",
+          "session_header": "Cabecera de sesión de conversación",
+          "timeout": "Tiempo máximo de respuesta (segundos)"
+        }
+      }
+    },
+    "error": {
+      "https_required": "La URL del borde debe usar HTTPS.",
+      "invalid_input": "Revisa los campos obligatorios y el tiempo máximo.",
+      "tls_error": "Ha fallado la verificación TLS. Revisa la raíz de confianza pegada.",
+      "invalid_auth": "La clave de API ha sido rechazada.",
+      "cannot_connect": "No se ha podido conectar con el borde.",
+      "unknown": "Se ha producido un error inesperado al validar el borde.",
+      "menu_entry_not_found": "Esta entrada del menú no está disponible para esta clave de API."
+    },
+    "abort": {
+      "already_configured": "Esta URL del borde y entrada de menú ya están configuradas."
+    }
+  }
+}
