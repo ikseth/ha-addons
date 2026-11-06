@@ -7,6 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
@@ -35,12 +36,17 @@ class IaNestConversationEntity(conversation.ConversationEntity):
     """A conversation agent that deliberately sends no HA context or history."""
 
     _attr_has_entity_name = True
-    _attr_name = "Conversation"
+    _attr_name = None
     _attr_supports_streaming = True
 
     def __init__(self, entry: ConfigEntry) -> None:
         self._entry = entry
         self._attr_unique_id = entry.entry_id
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=entry.title,
+            entry_type=DeviceEntryType.SERVICE,
+        )
 
     @property
     def supported_languages(self) -> list[str] | str:
@@ -64,18 +70,21 @@ class IaNestConversationEntity(conversation.ConversationEntity):
         )
         stream = chat_log.async_add_delta_content_stream(
             self.entity_id,
-            self._stream_turn(client, user_input),
+            self._stream_turn(client, user_input, chat_log),
         )
         async for _content in stream:
             pass
         return conversation.async_get_result_from_chat_log(user_input, chat_log)
 
     async def _stream_turn(
-        self, client: EdgeClient, user_input: conversation.ConversationInput
+        self,
+        client: EdgeClient,
+        user_input: conversation.ConversationInput,
+        chat_log: conversation.ChatLog,
     ) -> AsyncGenerator[dict[str, str]]:
         """Map edge chunks and failures into HA's text-only delta stream."""
         async for delta in map_edge_turn(
-            client.async_stream_chat(user_input.text, user_input.conversation_id),
+            client.async_stream_chat(user_input.text, chat_log.conversation_id),
             user_input.language,
         ):
             yield delta
