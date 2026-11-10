@@ -24,9 +24,9 @@ from .const import (
     INTEGRATION_VERSION,
 )
 from .coordinator import HA4LinuxCoordinator
+from .hub import HUB_DEVICE_INFO, claim_hub_owner
 
 _IN_PROGRESS_STATES = {"checking", "downloading", "applying", "restarting", "rollback"}
-_INTEGRATION_UPDATE_OWNER_KEY = "_integration_update_owner_entry_id"
 _INTEGRATION_UPDATE_TIMEOUT = aiohttp.ClientTimeout(total=10)
 SCAN_INTERVAL = timedelta(hours=6)
 
@@ -50,8 +50,7 @@ async def async_setup_entry(
 
     _try_add_entity()
 
-    owner_entry_id = hass.data[DOMAIN].setdefault(_INTEGRATION_UPDATE_OWNER_KEY, entry.entry_id)
-    if owner_entry_id == entry.entry_id:
+    if claim_hub_owner(hass, entry):
         async_add_entities([HA4LinuxIntegrationUpdateEntity(hass)])
 
     @callback
@@ -205,6 +204,7 @@ class HA4LinuxIntegrationUpdateEntity(UpdateEntity):
     _attr_title = "HA4Linux"
     _attr_icon = "mdi:home-assistant"
     _attr_has_entity_name = False
+    _attr_device_info = HUB_DEVICE_INFO
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
@@ -219,9 +219,14 @@ class HA4LinuxIntegrationUpdateEntity(UpdateEntity):
             "error": None,
         }
 
+    async def async_added_to_hass(self) -> None:
+        # Check right away instead of waiting for the first SCAN_INTERVAL (6 h).
+        self.async_schedule_update_ha_state(force_refresh=True)
+
     @property
     def available(self) -> bool:
-        return self._status.get("error") is None
+        # A failed check keeps the last good metadata; only unavailable if no check ever succeeded.
+        return self._status.get("error") is None or self._status.get("latest_version") is not None
 
     @property
     def supported_features(self) -> UpdateEntityFeature:
@@ -283,15 +288,14 @@ class HA4LinuxIntegrationUpdateEntity(UpdateEntity):
                 timeout=_INTEGRATION_UPDATE_TIMEOUT,
             ) as response:
                 response.raise_for_status()
-                payload = await response.json()
+                # raw.githubusercontent.com serves the manifest as text/plain: skip the content-type check.
+                payload = await response.json(content_type=None)
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as exc:
-            status["error"] = f"Unable to fetch integration update metadata: {exc}"
-            self._status = status
+            self._set_error(f"Unable to fetch integration update metadata: {exc}")
             return
 
         if not isinstance(payload, dict):
-            status["error"] = "Integration update metadata is not a JSON object"
-            self._status = status
+            self._set_error("Integration update metadata is not a JSON object")
             return
 
         status["latest_version"] = str(payload.get("version") or "").strip() or None
@@ -304,6 +308,9 @@ class HA4LinuxIntegrationUpdateEntity(UpdateEntity):
         status["notes"] = str(payload.get("notes") or "").strip() or None
         status["last_checked_at"] = datetime.now(timezone.utc).isoformat()
         self._status = status
+
+    def _set_error(self, error: str) -> None:
+        self._status = {**self._status, "error": error}
 
     def version_is_newer(self, latest_version: str, installed_version: str) -> bool:
         return _parse_semver(latest_version) > _parse_semver(installed_version)

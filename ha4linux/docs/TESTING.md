@@ -58,3 +58,13 @@ Esto intenta `terminate` de la sesion grafica activa.
 - Primero integrar solo sensores (lectura).
 - Actuadores deshabilitados hasta validar permisos y efectos.
 - Ejecutar pruebas de actuacion fuera de horario de operacion.
+
+## Pruebas automaticas de la integracion
+
+- `tests/ha4linux/test_system_updates.py`: logica pura, sin Home Assistant (`python3 -m pytest`).
+- `tests/ha4linux/test_ha_*.py`: con Home Assistant real en memoria. Se omiten si no esta instalado `pytest-homeassistant-custom-component`:
+
+```bash
+python3 -m venv .venv-ha && .venv-ha/bin/pip install pytest-homeassistant-custom-component
+.venv-ha/bin/python -m pytest tests/ha4linux
+```

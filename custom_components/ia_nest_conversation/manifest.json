@@ -1,0 +1,10 @@
+{
+  "domain": "ia_nest_conversation",
+  "name": "IA_NEST Conversation",
+  "version": "0.1.1",
+  "documentation": "https://github.com/ikseth/ha-addons/tree/main/custom_components/ia_nest_conversation/docs/DESIGN.md",
+  "config_flow": true,
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "requirements": []
+}

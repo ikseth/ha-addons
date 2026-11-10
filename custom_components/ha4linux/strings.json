@@ -32,8 +32,27 @@
           "token": "API token",
           "use_https": "Use HTTPS",
           "verify_ssl": "Verify SSL certificate",
-          "scan_interval": "Scan interval (seconds)"
+          "scan_interval": "Scan interval (seconds)",
+          "notify_system_updates": "Notify system updates (persistent notification)"
+        },
+        "data_description": {
+          "notify_system_updates": "Creates a persistent notification when this host has pending package updates. Disable it to follow updates from the dashboard entities instead."
         }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "system_updates_available": {
+        "name": "System updates available"
+      }
+    },
+    "sensor": {
+      "system_updates_hosts_with_updates": {
+        "name": "Hosts with system updates"
+      },
+      "system_updates_pending_total": {
+        "name": "Pending system updates"
       }
     }
   }

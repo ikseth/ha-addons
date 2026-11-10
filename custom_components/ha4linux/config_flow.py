@@ -10,11 +10,13 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import HA4LinuxApiClient, HA4LinuxApiError, HA4LinuxAuthError
 from .const import (
     CONF_HOST,
+    CONF_NOTIFY_SYSTEM_UPDATES,
     CONF_PORT,
     CONF_SCAN_INTERVAL,
     CONF_TOKEN,
     CONF_USE_HTTPS,
     CONF_VERIFY_SSL,
+    DEFAULT_NOTIFY_SYSTEM_UPDATES,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_USE_HTTPS,
@@ -63,6 +65,10 @@ def _options_schema(defaults: dict[str, Any]) -> vol.Schema:
                 int,
                 vol.Range(min=5, max=300),
             ),
+            vol.Required(
+                CONF_NOTIFY_SYSTEM_UPDATES,
+                default=defaults.get(CONF_NOTIFY_SYSTEM_UPDATES, DEFAULT_NOTIFY_SYSTEM_UPDATES),
+            ): bool,
         }
     )
 
@@ -123,6 +129,7 @@ class HA4LinuxOptionsFlow(config_entries.OptionsFlow):
             CONF_USE_HTTPS: DEFAULT_USE_HTTPS,
             CONF_VERIFY_SSL: DEFAULT_VERIFY_SSL,
             CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+            CONF_NOTIFY_SYSTEM_UPDATES: DEFAULT_NOTIFY_SYSTEM_UPDATES,
         }
         if config_entry is not None:
             defaults.update(config_entry.data)

@@ -54,13 +54,24 @@ Sensores:
 - App Policies Total
 - App Policy Violations
 
+Binary sensor (si el host expone el modulo `system_info`):
+
+- `System updates available` / `Actualizaciones del sistema disponibles` (`device_class: update`). `on` si hay paquetes pendientes; no disponible mientras el host no tiene una muestra valida (`checking`, desactivado o no soportado). Atributos: `pending_count`, `packages` (como maximo 20 nombres), `packages_truncated`, `package_manager` y `last_checked_at`.
+
+Sensores de resumen de la integracion (dispositivo de servicio `HA4Linux`, uno por instalacion):
+
+- `Hosts with system updates` / `Equipos con actualizaciones del sistema`: equipos con paquetes pendientes.
+- `Pending system updates` / `Actualizaciones del sistema pendientes`: total de paquetes pendientes de todos los equipos.
+- Ambos usan `state_class=measurement` y suman solo los equipos con muestra valida. Atributos: `hosts_reporting` (equipos que informan) y `hosts` (`host: paquetes` de los equipos con actualizaciones).
+- Viven en una de las entradas cargadas. Si se borra esa entrada, pasan a otra automaticamente.
+
 Entidad `update` (si el host expone `/v1/update/status` y `enabled=true`):
 
 - `HA4Linux API` (instalar update desde HA)
 
 Entidad `update` adicional para la propia integracion custom:
 
-- `HA4Linux Integration` (deteccion de nueva version publicada en el repositorio GitHub de origen)
+- `HA4Linux Integration` (deteccion de nueva version publicada en el repositorio GitHub de origen), en el dispositivo de servicio `HA4Linux`
 
 Sensores dinamicos por recurso (si el modulo esta disponible):
 
@@ -161,6 +172,9 @@ Desde la entrada de integracion:
 - `Use HTTPS`
 - `Verify SSL`
 - `Scan interval` (segundos)
+- `Notify system updates` / `Notificar actualizaciones del sistema` (activada por defecto): crea una notificacion persistente cuando el equipo tiene paquetes pendientes. Al desactivarla se descarta la notificacion existente y no se crean mas; las entidades de actualizaciones siguen funcionando igual.
+
+Los cambios de opciones se aplican al guardar (la entrada se recarga), sin reiniciar Home Assistant.
 
 Notas de update remoto:
 
@@ -171,6 +185,7 @@ Notas de update de la integracion custom:
 
 - La integracion consulta `custom_components/ha4linux/update-manifest.json` en el repositorio GitHub origen.
 - No depende de HACS.
+- Comprueba el manifiesto al arrancar y despues cada 6 horas. Si una comprobacion falla, conserva la ultima version conocida y deja el error en el atributo `error`; solo queda no disponible si nunca ha podido leer el manifiesto.
 - Esta entidad es informativa: detecta y propone la actualizacion de la integracion, pero no reescribe automaticamente `/config/custom_components/ha4linux`.
 - Para publicar una nueva version detectable debes actualizar estos ficheros del componente:
   - `custom_components/ha4linux/const.py`
@@ -182,5 +197,42 @@ Notas de updates del sistema:
 - El modulo `system_info` expone distribucion, version, kernel y gestor de paquetes del host Linux.
 - La comprobacion de paquetes pendientes se ejecuta en el host y queda cacheada por defecto durante `86400` segundos.
 - El refresco de paquetes se lanza en segundo plano para no bloquear el poll de Home Assistant; hasta disponer de una muestra valida, el estado expuesto sera `checking`.
-- Cuando el host devuelve `updates_pending_count > 0`, la integracion crea una notificacion persistente en Home Assistant.
+- Cuando el host devuelve `updates_pending_count > 0`, la integracion crea una notificacion persistente en Home Assistant, salvo que se desactive la opcion `Notify system updates` de la entrada.
 - La comprobacion es best effort y actualmente soporta `apt`, `dnf`, `yum`, `zypper` y `pacman/checkupdates` si estan disponibles.
+
+## Dashboard de actualizaciones del sistema
+
+Para seguir las actualizaciones en un dashboard en lugar de en notificaciones, desactiva `Notify system updates` en cada entrada y usa las entidades de actualizaciones con tarjetas nativas, sin plantillas.
+
+Resumen global (tarjetas `tile` sobre los sensores del dispositivo `HA4Linux`):
+
+```yaml
+type: grid
+columns: 2
+cards:
+  - type: tile
+    entity: sensor.ha4linux_hosts_with_system_updates
+  - type: tile
+    entity: sensor.ha4linux_pending_system_updates
+```
+
+Lista de equipos con actualizaciones (tarjeta `entity-filter` sobre el `binary_sensor` de cada equipo; solo muestra los que estan en `on`):
+
+```yaml
+type: entity-filter
+entities:
+  - binary_sensor.ha4linux_192_0_2_10_system_updates_available
+  - binary_sensor.ha4linux_192_0_2_11_system_updates_available
+state_filter:
+  - "on"
+card:
+  type: entities
+  title: Equipos con actualizaciones
+```
+
+Con la tarjeta `auto-entities` (HACS) se puede filtrar por integracion y `device_class: update` sin listar los equipos.
+
+Notas:
+
+- Los `entity_id` de ejemplo dependen del idioma de Home Assistant al crear las entidades y del nombre del equipo: copialos desde `Ajustes > Dispositivos y servicios > HA4Linux`.
+- Si necesitas el total en una plantilla, no filtres por `entity_id`: usa los sensores de resumen o, para reglas propias, `integration_entities('ha4linux')` junto con `device_class`.

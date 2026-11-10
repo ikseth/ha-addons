@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "IA_NEST Conversation",
+        "description": "Connect a text-only conversation agent to the IA_NEST edge. TLS verification always uses the pasted trust root.",
+        "data": {
+          "url": "Edge base URL (HTTPS)",
+          "api_key": "API key",
+          "ca_pem": "Trust root PEM certificate",
+          "menu_entry": "Edge menu entry",
+          "session_header": "Conversation session header",
+          "timeout": "Response timeout (seconds)"
+        }
+      }
+    },
+    "error": {
+      "https_required": "The edge URL must use HTTPS.",
+      "invalid_input": "Check the required fields and response timeout.",
+      "tls_error": "TLS verification failed. Check the pasted trust root.",
+      "invalid_auth": "The API key was rejected.",
+      "cannot_connect": "Could not connect to the edge.",
+      "unknown": "An unexpected error occurred while validating the edge.",
+      "menu_entry_not_found": "This menu entry is not available for this API key."
+    },
+    "abort": {
+      "already_configured": "This edge URL and menu entry are already configured."
+    }
+  }
+}
