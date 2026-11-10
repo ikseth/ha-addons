@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "CEC TV",
+        "description": "Controla un televisor por HDMI-CEC a traves del Kodi enchufado a el. Requiere el addon de Kodi script.cec.control 0.2.0 o posterior y el servidor web de Kodi (JSON-RPC) activado. CEC funciona aunque el televisor haya perdido la red.",
+        "data": {
+          "name": "Nombre del televisor",
+          "host": "Host de Kodi",
+          "port": "Puerto del servidor web de Kodi",
+          "username": "Usuario del servidor web de Kodi",
+          "password": "Contrasena del servidor web de Kodi"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No se puede conectar con Kodi",
+      "invalid_auth": "Credenciales del servidor web de Kodi no validas",
+      "addon_missing": "El addon script.cec.control no esta instalado en este Kodi",
+      "addon_disabled": "El addon script.cec.control esta instalado pero deshabilitado",
+      "addon_outdated": "El addon script.cec.control es demasiado antiguo: se necesita la 0.2.0 o posterior",
+      "unknown": "Error inesperado"
+    },
+    "abort": {
+      "already_configured": "Este Kodi ya esta configurado"
+    }
+  },
+  "entity": {
+    "update": {
+      "integration": {
+        "name": "Integracion CEC TV"
+      }
+    }
+  }
+}
