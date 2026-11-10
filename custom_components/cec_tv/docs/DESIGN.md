@@ -33,18 +33,16 @@ No ports, credentials or code are added on the Kodi box beyond the addon. The
 integration uses Kodi's existing web server (JSON-RPC) and its credentials.
 
 ## Entities
+- 0.2.0 exposed `kodi_active_source` and `active_source` (addon 0.3.0). Removed in
+  0.2.1: addon 0.3.1 stopped asking the bus for the active source, because with Kodi
+  in front nobody answered and, after a TV woke up on its own, the query made Kodi
+  claim the source and switch the TV input. Standby works whatever the TV shows:
+  since addon 0.3.0 it is sent straight to the TV over the kernel CEC API, because
+  Kodi's `CECStandby` only acts when Kodi is the active source.
 
 - One `switch` per TV. On = CEC `activate` (TV on and switched to Kodi's input),
   off = CEC `standby`. Attributes expose the raw CEC reading, its age, the pending
   command and why the switch is unavailable, if it is.
-- Since 0.2.0 (addon 0.3.0+), the switch also exposes `kodi_active_source`
-  (`yes`, `no` or `unknown`) and `active_source` (physical address of the active
-  source; `0.0.0.0` is the TV itself, e.g. its tuner). Use them to switch a TV off
-  for inactivity only when what it shows is Kodi, without relying on the TV's own
-  network integration. With an older addon both stay `unknown`/empty. Standby
-  itself now works whatever the active source is: addon 0.3.0 sends it straight to
-  the TV over the kernel CEC API, because Kodi's `CECStandby` only acts when Kodi
-  is the active source.
 - One `update` entity for the whole integration that reports new versions from
   `update-manifest.json`. It does not install: installation is manual.
 

@@ -3,7 +3,7 @@
 from homeassistant.const import Platform
 
 DOMAIN = "cec_tv"
-INTEGRATION_VERSION = "0.2.0"
+INTEGRATION_VERSION = "0.2.1"
 INTEGRATION_REPOSITORY_URL = (
     "https://github.com/ikseth/ha-addons/tree/main/custom_components/cec_tv"
 )

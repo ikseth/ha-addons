@@ -129,20 +129,3 @@ def test_version_tuple():
     assert model.version_tuple("0.2.1") == (0, 2, 1)
     assert model.version_tuple("v1.0") == (1, 0, 0)
     assert model.version_tuple("") == (0, 0, 0)
-
-
-# ---- 0.2.0: fuente activa (addon 0.3.0+)
-
-@pytest.mark.parametrize("raw, expected", [("yes", "yes"), ("no", "no"), ("", "unknown"), ("raro", "unknown")])
-def test_fuente_activa_se_normaliza(raw, expected):
-    datos = labels()
-    datos[model.label(model.PROP_KODI_ACTIVE)] = raw
-    datos[model.label(model.PROP_ACTIVE_SOURCE)] = "0.0.0.0" if raw else ""
-    s = model.Snapshot.from_labels(datos)
-    assert s.kodi_active == expected
-    assert s.active_source == ("0.0.0.0" if raw else "")
-
-
-def test_addon_anterior_sin_fuente_activa_es_desconocida():
-    s = snap()                      # sin las propiedades nuevas, como el addon 0.2.x
-    assert s.kodi_active == model.KODI_ACTIVE_UNKNOWN and s.active_source == ""
