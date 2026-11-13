@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Callable
 
 from homeassistant.components.sensor import (
@@ -334,6 +335,7 @@ async def async_setup_entry(
 
     known_raid_arrays: set[str] = set()
     known_services: set[str] = set()
+    known_service_last_runs: set[str] = set()
     known_vms: set[str] = set()
     known_network_interface_metrics: set[str] = set()
     known_filesystem_metrics: set[str] = set()
@@ -353,10 +355,14 @@ async def async_setup_entry(
         if "services" in modules:
             for item in _services_items(coordinator.data):
                 service_name = str(item.get("name", "")).strip()
-                if not service_name or service_name in known_services:
+                if not service_name:
                     continue
-                known_services.add(service_name)
-                new_entities.append(HA4LinuxServiceSensor(coordinator, entry, service_name))
+                if service_name not in known_services:
+                    known_services.add(service_name)
+                    new_entities.append(HA4LinuxServiceSensor(coordinator, entry, service_name))
+                if item.get("unit_type") in {"service", "timer"} and service_name not in known_service_last_runs:
+                    known_service_last_runs.add(service_name)
+                    new_entities.append(HA4LinuxServiceLastRunSensor(coordinator, entry, service_name))
 
         if "virtualbox" in modules:
             for item in _virtualbox_items(coordinator.data):
@@ -738,13 +744,56 @@ class HA4LinuxServiceSensor(_HA4LinuxBaseSensor):
         item = self._item()
         if not isinstance(item, dict):
             return None
-        return {
+        attributes = {
             "load_state": item.get("load_state"),
             "active_state": item.get("active_state"),
             "sub_state": item.get("sub_state"),
             "is_active": item.get("is_active"),
             "is_failed": item.get("is_failed"),
         }
+        for key in (
+            "unit_type", "result", "last_run_start", "last_run_end",
+            "last_exit_status", "last_trigger", "next_trigger",
+        ):
+            if key in item:
+                attributes[key] = item[key]
+        return attributes
+
+
+class HA4LinuxServiceLastRunSensor(HA4LinuxServiceSensor):
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, coordinator: HA4LinuxCoordinator, entry: ConfigEntry, service_name: str) -> None:
+        super().__init__(coordinator, entry, service_name)
+        self._attr_unique_id = f"{entry.entry_id}_service_{_slug(service_name)}_last_run"
+        self._attr_name = f"Service {service_name} Last Run"
+
+    @property
+    def native_value(self) -> datetime | None:
+        item = self._item()
+        if not item:
+            return None
+        if item.get("unit_type") == "timer":
+            value = item.get("last_trigger")
+        elif item.get("unit_type") == "service":
+            value = item.get("last_run_end") or item.get("last_run_start")
+        else:
+            return None
+        if not isinstance(value, str):
+            return None
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo and parsed.utcoffset() is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        item = self._item()
+        if not item or item.get("unit_type") != "service":
+            return None
+        return {key: item[key] for key in ("result", "last_exit_status") if key in item}
 
 
 class HA4LinuxNetworkInterfaceSensor(_HA4LinuxBaseSensor):

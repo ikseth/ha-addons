@@ -77,6 +77,8 @@ Sensores dinamicos por recurso (si el modulo esta disponible):
 
 - RAID `<mdX>` (estado y atributos de discos).
 - Service `<unit.service>` (estado `systemd`).
+- Service `<unit.service>` Last Run (timestamp de ultima ejecucion o disparo; solo
+  servicios y timers, desactivado por defecto).
 - VM `<name>` (estado VirtualBox).
 - NIC `<ifname>` RX Bytes
 - NIC `<ifname>` TX Bytes
@@ -85,6 +87,20 @@ Sensores dinamicos por recurso (si el modulo esta disponible):
 - FS `<mountpoint>` Used %
 - FS `<mountpoint>` Used GiB
 - FS `<mountpoint>` Free GiB
+
+El sensor de estado Service añade los atributos `unit_type`, `result`,
+`last_run_start`, `last_run_end`, `last_exit_status`, `last_trigger` y
+`next_trigger` cuando el agente los proporciona (desde 0.5.17). Un agente
+anterior sigue mostrando los atributos de estado originales y no crea Last Run.
+La entidad Last Run usa `last_trigger` para timers y `last_run_end` (o
+`last_run_start` durante una ejecucion) para servicios. Solo en servicios
+incluye `result` y `last_exit_status`. El disparo de un timer no prueba que su
+servicio terminase bien; `result` en un timer describe al timer. Los timestamps
+de servicios pueden desaparecer tras GC, `daemon-reload` o reinicio. Para
+latidos persistentes, usa un timer con `Persistent=true`; los fallos de un
+servicio permanecen detectables mientras este en `failed`, hasta
+`systemctl reset-failed`. Esto afecta a `/v1/sensors` y a las entidades de HA,
+no a `/v1/tray/status`.
 
 Compatibilidad con estadisticas de Home Assistant:
 
