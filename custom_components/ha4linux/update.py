@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timedelta, timezone
-from contextlib import suppress
+import logging
+import time
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import aiohttp
@@ -13,6 +13,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
@@ -27,6 +28,9 @@ from .coordinator import HA4LinuxCoordinator
 from .hub import HUB_DEVICE_INFO, claim_hub_owner
 
 _IN_PROGRESS_STATES = {"checking", "downloading", "applying", "restarting", "rollback"}
+_PENDING_TIMEOUT_SECONDS = 300
+_REFRESH_DELAYS = (5, 15, 30, 60, 120, 180, 300)
+_LOGGER = logging.getLogger(__name__)
 _INTEGRATION_UPDATE_TIMEOUT = aiohttp.ClientTimeout(total=10)
 SCAN_INTERVAL = timedelta(hours=6)
 
@@ -95,17 +99,92 @@ class HA4LinuxApiUpdateEntity(_HA4LinuxBaseUpdate):
         self._attr_name = "API Update"
         self._attr_has_entity_name = True
         self._attr_title = "HA4Linux API"
+        self._pending_target: str | None = None
+        self._pending_started: datetime | None = None
+        self._pending_monotonic: float | None = None
+        self._apply_confirmed = False
+        self._last_valid_status: dict[str, Any] = {}
+        self._last_update_issue: str | None = None
+        self._refresh_cancellers: list[Any] = []
+        self._remember_status()
 
     def _status(self) -> dict[str, Any]:
-        return _update_payload(self.coordinator.data)
+        status = _update_payload(self.coordinator.data)
+        if self._pending_target is not None and not status.get("enabled", False):
+            return self._last_valid_status
+        return status
 
-    async def _async_deferred_refresh(self) -> None:
-        await asyncio.sleep(5)
-        with suppress(Exception):
-            await self.coordinator.async_request_refresh()
+    def _remember_status(self) -> None:
+        status = _update_payload(self.coordinator.data)
+        if status.get("enabled", False) and status.get("supported", False):
+            self._last_valid_status = dict(status)
+
+    def _close_pending(self) -> None:
+        self._pending_target = None
+        self._pending_started = None
+        self._pending_monotonic = None
+        self._apply_confirmed = False
+        for cancel in self._refresh_cancellers:
+            cancel()
+        self._refresh_cancellers.clear()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        status = _update_payload(self.coordinator.data)
+        if self.coordinator.last_update_success:
+            self._remember_status()
+        if self._pending_target is not None:
+            if self.coordinator.last_update_success and status.get("enabled") and str(status.get("installed_version", "")).strip() == self._pending_target:
+                self._last_update_issue = None
+                self._close_pending()
+            elif self._apply_confirmed and self.coordinator.last_update_success and status.get("enabled") and status.get("state") == "error" and (
+                bool(status.get("error")) or self._applied_before_pending(status.get("last_applied_at"))
+            ):
+                self._close_pending()
+            elif self._pending_monotonic is not None and time.monotonic() - self._pending_monotonic >= _PENDING_TIMEOUT_SECONDS:
+                self._expire_pending()
+        super()._handle_coordinator_update()
+
+    def _applied_before_pending(self, raw: Any) -> bool:
+        if not raw or self._pending_started is None:
+            return True
+        try:
+            return datetime.fromisoformat(str(raw)) <= self._pending_started
+        except (ValueError, TypeError):
+            return False
+
+    def _expire_pending(self) -> None:
+        target = self._pending_target
+        if target is None:
+            return
+        self._last_update_issue = f"update to {target} did not complete within {_PENDING_TIMEOUT_SECONDS} s"
+        host = self._entry.options.get(CONF_HOST, self._entry.data.get(CONF_HOST, "linux"))
+        _LOGGER.warning("HA4Linux update for %s: %s", host, self._last_update_issue)
+        self._close_pending()
+        self.async_write_ha_state()
+
+    def _schedule_refreshes(self) -> None:
+        for delay in _REFRESH_DELAYS:
+            @callback
+            def refresh(_now: datetime, refresh_delay: int = delay) -> None:
+                if self._pending_target is not None:
+                    async def run_refresh() -> None:
+                        try:
+                            await self.coordinator.async_request_refresh()
+                        except Exception:
+                            _LOGGER.exception("HA4Linux update refresh failed")
+                        if refresh_delay == _PENDING_TIMEOUT_SECONDS and self._pending_target is not None:
+                            self._expire_pending()
+
+                    self.hass.async_create_task(run_refresh())
+
+            self._refresh_cancellers.append(async_call_later(self.hass, delay, refresh))
+        self.async_on_remove(self._close_pending)
 
     @property
     def available(self) -> bool:
+        if self._pending_target is not None:
+            return True
         status = self._status()
         return bool(status) and bool(status.get("supported", False)) and bool(status.get("enabled", False))
 
@@ -113,7 +192,7 @@ class HA4LinuxApiUpdateEntity(_HA4LinuxBaseUpdate):
     def supported_features(self) -> UpdateEntityFeature:
         status = self._status()
         if bool(status.get("supports_apply", False)):
-            return UpdateEntityFeature.INSTALL | UpdateEntityFeature.SPECIFIC_VERSION
+            return UpdateEntityFeature.INSTALL | UpdateEntityFeature.SPECIFIC_VERSION | UpdateEntityFeature.PROGRESS
         return UpdateEntityFeature(0)
 
     @property
@@ -134,8 +213,14 @@ class HA4LinuxApiUpdateEntity(_HA4LinuxBaseUpdate):
 
     @property
     def in_progress(self) -> bool:
+        if self._pending_target is not None:
+            return True
         state = str(self._status().get("state", "")).strip().lower()
-        return state in _IN_PROGRESS_STATES
+        return bool(self.coordinator.last_update_success and state in _IN_PROGRESS_STATES)
+
+    @property
+    def update_percentage(self) -> None:
+        return None
 
     @property
     def release_url(self) -> str | None:
@@ -151,6 +236,7 @@ class HA4LinuxApiUpdateEntity(_HA4LinuxBaseUpdate):
         if not status:
             return None
         return {
+            "last_update_issue": self._last_update_issue,
             "ok": status.get("ok"),
             "enabled": status.get("enabled"),
             "state": status.get("state"),
@@ -183,19 +269,32 @@ class HA4LinuxApiUpdateEntity(_HA4LinuxBaseUpdate):
                 )
             )
 
-        check = await self.coordinator.api.update_check()
-        if not check.get("ok", False):
-            raise HomeAssistantError(check.get("error", "Unable to check update state"))
-
         requested_version = str(version).strip() if version else None
-        apply_result = await self.coordinator.api.update_apply(target_version=requested_version)
-        if not apply_result.get("ok", False):
-            raise HomeAssistantError(apply_result.get("error", "Unable to apply update"))
+        target = requested_version or self.latest_version
+        if not target:
+            raise HomeAssistantError("No target version available")
+        self._pending_target = target
+        self._pending_started = datetime.now(UTC)
+        self._pending_monotonic = time.monotonic()
+        self.async_write_ha_state()
+        self._schedule_refreshes()
+        try:
+            check = await self.coordinator.api.update_check()
+            if not check.get("ok", False):
+                raise HomeAssistantError(check.get("error", "Unable to check update state"))
+            apply_result = await self.coordinator.api.update_apply(target_version=requested_version)
+            if not apply_result.get("ok", False):
+                raise HomeAssistantError(apply_result.get("error", "Unable to apply update"))
+        except Exception as exc:
+            self._close_pending()
+            self.async_write_ha_state()
+            raise HomeAssistantError(str(exc)) from exc
 
+        # Stale "error" states from earlier attempts must not close the new pending update.
+        self._apply_confirmed = True
         updated_data = dict(self.coordinator.data)
         updated_data["update"] = apply_result
         self.coordinator.async_set_updated_data(updated_data)
-        self.hass.async_create_task(self._async_deferred_refresh())
 
 
 class HA4LinuxIntegrationUpdateEntity(UpdateEntity):
@@ -290,7 +389,7 @@ class HA4LinuxIntegrationUpdateEntity(UpdateEntity):
                 response.raise_for_status()
                 # raw.githubusercontent.com serves the manifest as text/plain: skip the content-type check.
                 payload = await response.json(content_type=None)
-        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as exc:
+        except (TimeoutError, aiohttp.ClientError, ValueError) as exc:
             self._set_error(f"Unable to fetch integration update metadata: {exc}")
             return
 
@@ -306,7 +405,7 @@ class HA4LinuxIntegrationUpdateEntity(UpdateEntity):
             str(payload.get("download_url") or "").strip() or INTEGRATION_DOWNLOAD_URL
         )
         status["notes"] = str(payload.get("notes") or "").strip() or None
-        status["last_checked_at"] = datetime.now(timezone.utc).isoformat()
+        status["last_checked_at"] = datetime.now(UTC).isoformat()
         self._status = status
 
     def _set_error(self, error: str) -> None:
@@ -318,8 +417,7 @@ class HA4LinuxIntegrationUpdateEntity(UpdateEntity):
 
 def _parse_semver(raw: str) -> tuple[int, int, int]:
     token = raw.strip().lower()
-    if token.startswith("v"):
-        token = token[1:]
+    token = token.removeprefix("v")
     token = token.split("-", 1)[0]
     parts = token.split(".")
     parsed: list[int] = []

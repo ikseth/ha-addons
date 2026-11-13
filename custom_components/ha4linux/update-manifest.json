@@ -1,6 +1,6 @@
 {
-  "version": "0.5.17",
+  "version": "0.5.18",
   "release_url": "https://github.com/ikseth/ha-addons/tree/main/custom_components/ha4linux",
   "download_url": "https://github.com/ikseth/ha-addons/archive/refs/heads/main.zip",
-  "notes": "Manual update from the source repository. Service and timer Last Run timestamp entities (disabled by default), plus additional service state attributes. Compatible with older agents."
+  "notes": "Manual update from the source repository. Remote agent updates show indeterminate progress until completion or a 300-second timeout. Compatible with older agents."
 }

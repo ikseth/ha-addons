@@ -12,7 +12,6 @@ import tempfile
 import time
 import urllib.request
 from pathlib import Path
-from typing import Optional
 
 DATA_DIR = Path('/var/lib/ha4linux')
 REQUEST_FILE = DATA_DIR / 'update-request.json'
@@ -22,13 +21,18 @@ INSTALL_DIR = Path('/opt/ha4linux')
 
 BACKUP_PATHS = (
     Path('/opt/ha4linux/app'),
+    Path('/opt/ha4linux/tray'),
     Path('/opt/ha4linux/requirements.txt'),
     Path('/opt/ha4linux/update'),
+    Path('/opt/ha4linux/ha4linux-message-root.py'),
+    Path('/opt/ha4linux/ha4linux-icon.png'),
     Path('/etc/ha4linux'),
+    Path('/etc/xdg/autostart/ha4linux-tray.desktop'),
     Path('/etc/systemd/system/ha4linux.service'),
     Path('/etc/systemd/system/ha4linux.service.d'),
     Path('/etc/sudoers.d/ha4linux'),
 )
+OWNED_DIRS = (Path('/opt/ha4linux/app'), Path('/opt/ha4linux/tray'), Path('/opt/ha4linux/update'))
 
 
 def log(message: str) -> None:
@@ -143,9 +147,8 @@ def create_backup(request: dict[str, str]) -> Path:
 
 
 def download_asset(asset_url: str, destination: Path) -> None:
-    with urllib.request.urlopen(asset_url, timeout=60) as response:
-        with destination.open('wb') as handle:
-            shutil.copyfileobj(response, handle)
+    with urllib.request.urlopen(asset_url, timeout=60) as response, destination.open('wb') as handle:
+        shutil.copyfileobj(response, handle)
 
 
 def sha256_file(path: Path) -> str:
@@ -180,14 +183,27 @@ def safe_extract_tar(archive: tarfile.TarFile, destination: Path) -> None:
     archive.extractall(**extract_kwargs)
 
 
-def rebuild_virtualenv() -> None:
-    requirements = INSTALL_DIR / 'requirements.txt'
-    if not requirements.exists():
-        raise RuntimeError(f'requirements file not found: {requirements}')
+def rebuild_virtualenv(helper: Path) -> None:
+    subprocess.run(['python3', str(helper), str(INSTALL_DIR)], check=True)
 
-    subprocess.run(['python3', '-m', 'venv', '/opt/ha4linux/.venv'], check=True)
-    subprocess.run(['/opt/ha4linux/.venv/bin/pip', 'install', '--upgrade', 'pip'], check=True)
-    subprocess.run(['/opt/ha4linux/.venv/bin/pip', 'install', '-r', str(requirements)], check=True)
+
+def restore_files(extract_dir: Path) -> None:
+    for path in BACKUP_PATHS:
+        source = extract_dir / path.relative_to('/')
+        # Only touch what the backup contains: backups made by older workers cover fewer
+        # paths, and a missing entry must never delete the installed file.
+        if not (source.exists() or source.is_symlink()):
+            continue
+        if path in OWNED_DIRS and source.is_dir():
+            # Directories owned by ha4linux are replaced to drop files added by the failed update.
+            if path.exists():
+                shutil.rmtree(path)
+            shutil.copytree(source, path, symlinks=True)
+        elif source.is_dir():
+            shutil.copytree(source, path, dirs_exist_ok=True, symlinks=True)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, path, follow_symlinks=False)
 
 
 def restore_backup(backup_dir: Path) -> None:
@@ -196,15 +212,15 @@ def restore_backup(backup_dir: Path) -> None:
         raise RuntimeError(f'backup archive not found: {archive_path}')
 
     with tempfile.TemporaryDirectory(prefix='ha4linux-restore-', dir=str(DATA_DIR)) as tmp_dir:
+        helper = Path(tmp_dir) / 'ha4linux-venv.py'
+        shutil.copy2(INSTALL_DIR / 'update/ha4linux-venv.py', helper)
         extract_dir = Path(tmp_dir) / 'extract'
         extract_dir.mkdir(parents=True, exist_ok=True)
         with tarfile.open(archive_path, 'r:gz') as archive:
             safe_extract_tar(archive, extract_dir)
-        for child in extract_dir.iterdir():
-            target = Path('/') / child.name
-            subprocess.run(['cp', '-a', f'{child}/.' if child.is_dir() else str(child), str(target)], check=True)
+        restore_files(extract_dir)
+        rebuild_virtualenv(helper)
 
-    rebuild_virtualenv()
     subprocess.run(['systemctl', 'daemon-reload'], check=True)
 
 
@@ -228,9 +244,7 @@ def schedule_service_restart() -> None:
     )
 
 
-def apply_update(request: dict[str, str]) -> Path:
-    request = enrich_request(request)
-    backup_dir = create_backup(request)
+def apply_update(request: dict[str, str], backup_dir: Path) -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix='ha4linux-update-', dir=str(DATA_DIR)) as tmp_dir:
@@ -256,20 +270,24 @@ def apply_update(request: dict[str, str]) -> Path:
         subprocess.run([str(installer), '--skip-deps', '--no-start'], check=True)
 
     schedule_service_restart()
-    return backup_dir
 
 
 def main() -> None:
     require_root()
     request = read_request()
-    backup_dir: Optional[Path] = None
+    backup_dir: Path | None = None
 
     try:
-        backup_dir = apply_update(request)
+        request = enrich_request(request)
+        backup_dir = create_backup(request)
+        apply_update(request, backup_dir)
     except Exception as exc:
         if backup_dir is not None:
             log(f'update failed, restoring backup from {backup_dir}')
-            restore_backup(backup_dir)
+            try:
+                restore_backup(backup_dir)
+            except Exception as restore_exc:
+                raise SystemExit(f'update failed: {exc}; backup restoration failed: {restore_exc}') from restore_exc
         raise SystemExit(str(exc)) from exc
 
     REQUEST_FILE.unlink(missing_ok=True)
