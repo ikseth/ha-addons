@@ -19,6 +19,7 @@ UPDATE_APPLY_ROOT_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-apply-r
 UPDATE_ROLLBACK_ROOT_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-rollback-root.py"
 UPDATE_APPLY_WORKER_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-apply-worker.py"
 UPDATE_ROLLBACK_WORKER_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-update-rollback-worker.py"
+VENV_HELPER_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-venv.py"
 MESSAGE_ROOT_SRC="${HA4LINUX_ROOT}/packaging/assets/ha4linux-message-root.py"
 
 INSTALL_DIR="/opt/ha4linux"
@@ -41,6 +42,7 @@ UPDATE_APPLY_ROOT_TARGET="${UPDATE_DIR}/ha4linux-update-apply-root.py"
 UPDATE_ROLLBACK_ROOT_TARGET="${UPDATE_DIR}/ha4linux-update-rollback-root.py"
 UPDATE_APPLY_WORKER_TARGET="${UPDATE_DIR}/ha4linux-update-apply-worker.py"
 UPDATE_ROLLBACK_WORKER_TARGET="${UPDATE_DIR}/ha4linux-update-rollback-worker.py"
+VENV_HELPER_TARGET="${UPDATE_DIR}/ha4linux-venv.py"
 MESSAGE_ROOT_TARGET="${INSTALL_DIR}/ha4linux-message-root.py"
 ICON_TARGET="${INSTALL_DIR}/ha4linux-icon.png"
 TRAY_DESKTOP_TARGET="${AUTOSTART_DIR}/ha4linux-tray.desktop"
@@ -601,6 +603,7 @@ install_files() {
   [[ -f "${SERVICE_DROPIN_SRC}" ]] || fail "managed service drop-in not found"
   [[ -f "${UPDATE_APPLY_WORKER_SRC}" ]] || fail "update apply worker not found"
   [[ -f "${UPDATE_ROLLBACK_WORKER_SRC}" ]] || fail "update rollback worker not found"
+  [[ -f "${VENV_HELPER_SRC}" ]] || fail "venv helper not found"
   [[ -f "${MESSAGE_ROOT_SRC}" ]] || fail "message root helper not found"
 
   mkdir -p "${INSTALL_DIR}" "${TRAY_DIR}" "${UPDATE_DIR}" "${ETC_DIR}" "${CERT_DIR}" "${POLICY_DIR}" "${LOG_DIR}" "${DATA_DIR}" "${AUTOSTART_DIR}"
@@ -621,6 +624,7 @@ install_files() {
   install -m 755 "${UPDATE_ROLLBACK_ROOT_SRC}" "${UPDATE_ROLLBACK_ROOT_TARGET}"
   install -m 755 "${UPDATE_APPLY_WORKER_SRC}" "${UPDATE_APPLY_WORKER_TARGET}"
   install -m 755 "${UPDATE_ROLLBACK_WORKER_SRC}" "${UPDATE_ROLLBACK_WORKER_TARGET}"
+  install -m 755 "${VENV_HELPER_SRC}" "${VENV_HELPER_TARGET}"
   install -m 755 "${MESSAGE_ROOT_SRC}" "${MESSAGE_ROOT_TARGET}"
 
   chmod 755 "${TRAY_DIR}/ha4linux-tray"
@@ -687,18 +691,8 @@ EOF_POLICY
 }
 
 setup_venv() {
-  local pybin
-  if command -v python3 >/dev/null 2>&1; then
-    pybin="python3"
-  elif command -v python >/dev/null 2>&1; then
-    pybin="python"
-  else
-    fail "Python interpreter not found"
-  fi
-
-  "${pybin}" -m venv "${INSTALL_DIR}/.venv"
-  "${INSTALL_DIR}/.venv/bin/pip" install --upgrade pip
-  "${INSTALL_DIR}/.venv/bin/pip" install -r "${INSTALL_DIR}/requirements.txt"
+  command -v python3 >/dev/null 2>&1 || fail "python3 not found"
+  python3 "${VENV_HELPER_TARGET}" "${INSTALL_DIR}"
 }
 
 install_service_definition() {

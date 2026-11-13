@@ -232,6 +232,7 @@ El instalador cliente deja preparados por defecto los helpers:
 - `/opt/ha4linux/update/ha4linux-update-rollback-root.py`
 - `/opt/ha4linux/update/ha4linux-update-apply-worker.py`
 - `/opt/ha4linux/update/ha4linux-update-rollback-worker.py`
+- `/opt/ha4linux/update/ha4linux-venv.py`
 
 Flujo esperado:
 
@@ -241,6 +242,12 @@ Flujo esperado:
 - El host descarga el artefacto desde GitHub, valida `sha256`, crea backup y reinstala
 - `ha4linux.service` se reinicia de forma controlada mediante una unidad transitoria diferida gestionada por `systemd`
 - Si la instalacion falla, se restaura el backup automaticamente
+
+El instalador y los workers usan `python -m pip`. Si `.venv/bin/python` y `python -m pip --version` funcionan, instalan los requisitos en ese entorno. Si el venv esta roto, crean otro junto a el con `python3` (minimo 3.9), instalan los requisitos y solo entonces lo sustituyen. Si la preparacion falla, conservan el venv anterior.
+
+La copia incluye `app`, `tray`, `update`, `requirements.txt`, el icono y el helper de mensajes en `/opt/ha4linux`; `/etc/ha4linux`; la entrada de autoinicio; la unidad y el drop-in de systemd; y la regla sudoers. Al restaurar solo se tocan las rutas que contiene la copia (las copias hechas por workers anteriores a 0.5.18 cubren menos rutas, y lo que no esta en la copia se deja como esta). `app`, `tray` y `update`, si estan en la copia, se sustituyen por completo para retirar ficheros nuevos. La configuracion y el directorio de drop-ins se copian encima para conservar otros ficheros del usuario. El venv no se copia: se valida o reconstruye con el helper.
+
+El worker usado al aplicar una version es el que ya esta instalado en el host. La restauracion ampliada de 0.5.18 protege las actualizaciones posteriores a la instalacion de 0.5.18; el instalador del bundle 0.5.18 ya corrige el venv durante el salto a esta version.
 
 Preflight de update remoto:
 

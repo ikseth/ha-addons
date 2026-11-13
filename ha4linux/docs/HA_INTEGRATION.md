@@ -196,6 +196,8 @@ Notas de update remoto:
 
 - La comprobacion de disponibilidad de nuevas versiones la gobierna el host API (`HA4LINUX_REMOTE_UPDATE_CHECK_INTERVAL_SEC`).
 - La accion de instalar desde la entidad `update` ejecuta `POST /v1/update/check` y `POST /v1/update/apply`.
+- La entidad muestra progreso indeterminado desde el inicio de la instalacion hasta que el agente vuelve e informa la version objetivo. Conserva el ultimo estado valido mientras reinicia.
+- La espera termina a los 300 s. Si no se confirma la version, el atributo `last_update_issue` explica el vencimiento; se limpia tras una instalacion confirmada.
 
 Notas de update de la integracion custom:
 

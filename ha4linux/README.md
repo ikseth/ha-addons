@@ -4,7 +4,9 @@ Add-on modular para Home Assistant orientado a monitorizacion y control operativ
 
 ## Estado actual
 
-Version funcional `0.5.17` con:
+Version funcional `0.5.18` con:
+
+Changelog 0.5.18: progreso de actualizacion remota en Home Assistant hasta confirmar la version; instalacion de requisitos con `python -m pip` y sustitucion segura de venvs rotos; copia y restauracion ampliadas del worker. El worker de aplicacion ya instalado ejecuta el salto a 0.5.18, por lo que la nueva restauracion protege desde la siguiente actualizacion.
 
 La version 0.5.16 del agente se omite para alinear la numeracion con la integracion.
 
