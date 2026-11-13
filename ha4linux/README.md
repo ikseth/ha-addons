@@ -4,7 +4,9 @@ Add-on modular para Home Assistant orientado a monitorizacion y control operativ
 
 ## Estado actual
 
-Version funcional `0.5.15` con:
+Version funcional `0.5.17` con:
+
+La version 0.5.16 del agente se omite para alinear la numeracion con la integracion.
 
 - Sensores base: `cpu_load`, `memory`, `network`.
 - Sensores de infraestructura: `raid_mdstat`, `virtualbox`, `services`.
@@ -81,6 +83,56 @@ Semantica:
 - `POST /v1/update/check`
 - `POST /v1/update/apply`
 - `POST /v1/update/rollback`
+
+### Unidades systemd vigiladas
+
+El sensor `services` de `/v1/sensors` conserva `name`, `exists`, `load_state`,
+`active_state`, `sub_state`, `is_active`, `is_failed` y `status`. Cada unidad
+existente añade `unit_type`, `result`, `last_run_start`, `last_run_end`,
+`last_exit_status`, `last_trigger` y `next_trigger`. Las fechas son ISO 8601 UTC;
+los valores desconocidos o no aplicables son `null`. Los servicios usan
+`last_run_start`, `last_run_end` y `last_exit_status`; los timers usan
+`last_trigger` y `next_trigger`. `next_trigger` solo tiene valor en timers de
+calendario (`OnCalendar=`); en timers monotonicos (`OnBootSec=`,
+`OnUnitActiveSec=`...) systemd no publica una hora de reloj y queda `null`.
+La bandeja (`/v1/tray/status`) no cambia.
+
+`last_trigger` indica el ultimo disparo del timer, no la finalizacion ni el
+exito del servicio asociado. El `result` del timer describe al propio timer.
+Systemd puede perder los timestamps `ExecMain*` del servicio al descargar la
+unidad (GC), hacer `daemon-reload` o reiniciar. Para un latido persistente
+entre reinicios, vigila un timer con `Persistent=true`. Un servicio en `failed`
+permanece cargado y permite detectar el fallo mediante `active_state` y
+`result` mientras nadie ejecute `systemctl reset-failed`. Esa orden devuelve
+`active_state` a `inactive` y `result` a `success`, pero conserva
+`last_run_start`, `last_run_end` y `last_exit_status` de la ultima ejecucion
+mientras la unidad siga cargada (verificado con systemd 258). Para detectar un
+fallo aunque se haya hecho `reset-failed`, considera tambien
+`last_exit_status` distinto de `0`. Recuperar fallos historicos despues de
+perderse el estado queda fuera de alcance.
+
+Ejemplo generico de latido mediante el atributo del sensor de estado:
+
+```yaml
+template:
+  - binary_sensor:
+      - name: "Backup heartbeat overdue"
+        state: >
+          {% set t = state_attr('sensor.myhost_service_backup_timer', 'last_trigger') %}
+          {{ t is none or (now() - as_datetime(t)) > timedelta(days=3) }}
+```
+
+Si activas la entidad `Service backup.timer Last Run`, que viene desactivada
+por defecto, puedes usar su estado timestamp:
+
+```yaml
+template:
+  - binary_sensor:
+      - name: "Backup heartbeat overdue"
+        state: >
+          {% set t = states('sensor.myhost_service_backup_timer_last_run') %}
+          {{ t in ['unknown', 'unavailable'] or (now() - as_datetime(t)) > timedelta(days=3) }}
+```
 - `POST /v1/actuators/session_manager/status`
 - `POST /v1/actuators/session_manager/activate`
 - `POST /v1/actuators/session_manager/terminate`
