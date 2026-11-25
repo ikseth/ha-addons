@@ -26,5 +26,22 @@
     "abort": {
       "already_configured": "Esta URL del borde y entrada de menú ya están configuradas."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Cabeceras de interlocutor IA_NEST",
+        "description": "Asigna IDs de usuario de Home Assistant a las direcciones de correo que acepta el borde.",
+        "data": {
+          "person_map": "Mapa de ID de usuario de Home Assistant a correo",
+          "person_header": "Cabecera de persona",
+          "device_header": "Cabecera de dispositivo"
+        }
+      }
+    },
+    "error": {
+      "invalid_person_map": "Cada ID de usuario y correo debe ser texto no vacío, y cada correo debe contener @.",
+      "invalid_headers": "Las cabeceras de persona y dispositivo no pueden estar vacías."
+    }
   }
 }

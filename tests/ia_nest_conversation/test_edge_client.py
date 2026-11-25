@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import logging
 from pathlib import Path
 import subprocess
 import sys
@@ -39,6 +40,8 @@ def _load_component_module(name: str):
 
 edge_client = _load_component_module("edge_client")
 stream = _load_component_module("stream")
+options = _load_component_module("options")
+speaker = _load_component_module("speaker")
 
 
 def _certificate(directory: Path, name: str, loopback: str) -> tuple[Path, Path]:
@@ -66,7 +69,12 @@ async def https_server():
         loopback = socket.inet_ntoa(bytes((127, 0, 0, 1)))
         cert, key = _certificate(tmp_path, "server", loopback)
         received: list[dict[str, object]] = []
-        state: dict[str, object] = {"parts": [b"data: [DONE]\n\n"], "models_error": None, "delay": 0}
+        state: dict[str, object] = {
+            "parts": [b"data: [DONE]\n\n"],
+            "models_error": None,
+            "chat_status": None,
+            "delay": 0,
+        }
 
         async def models(request: web.Request) -> web.Response:
             received.append({"headers": dict(request.headers)})
@@ -76,6 +84,11 @@ async def https_server():
 
         async def chat(request: web.Request) -> web.StreamResponse:
             received.append({"headers": dict(request.headers), "body": await request.json()})
+            if chat_status := state["chat_status"]:
+                return web.json_response(
+                    {"error": {"message": "denied", "code": "forbidden"}},
+                    status=chat_status,
+                )
             if delay := state["delay"]:
                 await asyncio.sleep(delay)
             response = web.StreamResponse(headers={"Content-Type": "text/event-stream"})
@@ -129,7 +142,17 @@ async def test_models_and_split_sse_send_only_one_user_message():
         client, session = await _client(base_url, ca_pem)
         try:
             assert await client.async_models() == ["casa"]
-            assert [part async for part in client.async_stream_chat("saludo", "turno-1")] == ["Hola", "!"]
+            assert [
+                part
+                async for part in client.async_stream_chat(
+                    "saludo",
+                    "turno-1",
+                    extra_headers={
+                        "X-Example-Person": "person@example.invalid",
+                        "X-Example-Device": "device-example",
+                    },
+                )
+            ] == ["Hola", "!"]
         finally:
             await session.close()
 
@@ -137,6 +160,8 @@ async def test_models_and_split_sse_send_only_one_user_message():
         headers = request["headers"]
         assert headers["Authorization"] == "Bearer test-token"
         assert headers["X-Session"] == "turno-1"
+        assert headers["X-Example-Person"] == "person@example.invalid"
+        assert headers["X-Example-Device"] == "device-example"
         body = request["body"]
         assert body == {
             "model": "casa",
@@ -144,6 +169,21 @@ async def test_models_and_split_sse_send_only_one_user_message():
             "messages": [{"role": "user", "content": "saludo"}],
         }
         assert "system" not in body and "tools" not in body
+        assert "user" not in body and "metadata" not in body and "language" not in body
+
+
+@async_test
+async def test_optional_turn_headers_are_absent_when_not_supplied():
+    async with https_server() as (base_url, ca_pem, _, received, _):
+        client, session = await _client(base_url, ca_pem)
+        try:
+            assert [part async for part in client.async_stream_chat("saludo", None)] == []
+        finally:
+            await session.close()
+
+        headers = received[-1]["headers"]
+        assert "X-Example-Person" not in headers
+        assert "X-Example-Device" not in headers
 
 
 @async_test
@@ -234,6 +274,57 @@ async def test_sse_error_and_missing_done():
                 assert [part async for part in client.async_stream_chat("x", None)] == ["partial"]
         finally:
             await session.close()
+
+
+@async_test
+async def test_forbidden_turn_produces_the_usual_localized_failure_notice():
+    async with https_server() as (base_url, ca_pem, state, _, _):
+        state["chat_status"] = 403
+        client, session = await _client(base_url, ca_pem)
+        try:
+            assert [
+                delta
+                async for delta in stream.map_edge_turn(
+                    client.async_stream_chat("saludo", None), "es-ES"
+                )
+            ] == [
+                {"role": "assistant"},
+                {"content": "No he podido contestar ahora. Intentalo de nuevo."},
+            ]
+        finally:
+            await session.close()
+
+
+def test_person_map_validation_rejects_invalid_email_and_accepts_empty_map():
+    assert options.validate_person_map({}) == {}
+    assert options.validate_person_map({"user-example": "person@example.invalid"}) == {
+        "user-example": "person@example.invalid"
+    }
+    with pytest.raises(ValueError, match="containing @"):
+        options.validate_person_map({"user-example": "invalid-address"})
+
+
+def test_turn_headers_honor_options_and_never_log_identifiers(caplog):
+    email = "person@example.invalid"
+    device_id = "device-example"
+    caplog.set_level(logging.DEBUG, logger=speaker.__name__)
+    assert speaker.build_turn_headers(
+        {
+            "person_map": {"user-example": email},
+            "person_header": "X-Custom-Person",
+            "device_header": "X-Custom-Device",
+        },
+        "user-example",
+        device_id,
+    ) == {
+        "X-Custom-Person": email,
+        "X-Custom-Device": device_id,
+    }
+    assert "person_sent=True device_sent=True" in caplog.text
+    assert email not in caplog.text
+    assert device_id not in caplog.text
+
+    assert speaker.build_turn_headers({}, None, None) == {}
 
 
 @async_test
