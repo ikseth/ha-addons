@@ -20,6 +20,7 @@ from .const import (
     DOMAIN,
 )
 from .edge_client import EdgeClient
+from .speaker import build_turn_headers
 from .stream import map_edge_turn
 
 
@@ -68,9 +69,10 @@ class IaNestConversationEntity(conversation.ConversationEntity):
             self._entry.data[CONF_SESSION_HEADER],
             self._entry.data[CONF_TIMEOUT],
         )
+        extra_headers = self._turn_headers(user_input)
         stream = chat_log.async_add_delta_content_stream(
             self.entity_id,
-            self._stream_turn(client, user_input, chat_log),
+            self._stream_turn(client, user_input, chat_log, extra_headers),
         )
         async for _content in stream:
             pass
@@ -81,10 +83,25 @@ class IaNestConversationEntity(conversation.ConversationEntity):
         client: EdgeClient,
         user_input: conversation.ConversationInput,
         chat_log: conversation.ChatLog,
+        extra_headers: dict[str, str],
     ) -> AsyncGenerator[dict[str, str]]:
         """Map edge chunks and failures into HA's text-only delta stream."""
         async for delta in map_edge_turn(
-            client.async_stream_chat(user_input.text, chat_log.conversation_id),
+            client.async_stream_chat(
+                user_input.text,
+                chat_log.conversation_id,
+                extra_headers=extra_headers,
+            ),
             user_input.language,
         ):
             yield delta
+
+    def _turn_headers(
+        self, user_input: conversation.ConversationInput
+    ) -> dict[str, str]:
+        """Build only the optional speaker headers for this turn."""
+        return build_turn_headers(
+            self._entry.options,
+            user_input.context.user_id,
+            user_input.device_id,
+        )

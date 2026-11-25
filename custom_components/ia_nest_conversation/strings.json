@@ -26,5 +26,22 @@
     "abort": {
       "already_configured": "This edge URL and menu entry are already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "IA_NEST speaker headers",
+        "description": "Map Home Assistant user IDs to the e-mail addresses accepted by the edge.",
+        "data": {
+          "person_map": "Home Assistant user ID to e-mail map",
+          "person_header": "Person header",
+          "device_header": "Device header"
+        }
+      }
+    },
+    "error": {
+      "invalid_person_map": "Each user ID and e-mail must be non-empty text, and each e-mail must contain @.",
+      "invalid_headers": "Person and device headers must not be empty."
+    }
   }
 }

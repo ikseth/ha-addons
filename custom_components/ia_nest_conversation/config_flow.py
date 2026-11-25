@@ -8,9 +8,11 @@ from urllib.parse import urlsplit
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    ObjectSelector,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -20,14 +22,21 @@ from .const import (
     CONF_API_KEY,
     CONF_CA_PEM,
     CONF_MENU_ENTRY,
+    CONF_DEVICE_HEADER,
+    CONF_PERSON_HEADER,
+    CONF_PERSON_MAP,
     CONF_SESSION_HEADER,
     CONF_TIMEOUT,
     CONF_URL,
     DEFAULT_MENU_ENTRY,
+    DEFAULT_DEVICE_HEADER,
+    DEFAULT_PERSON_HEADER,
+    DEFAULT_PERSON_MAP,
     DEFAULT_SESSION_HEADER,
     DEFAULT_TIMEOUT,
     DOMAIN,
 )
+from .options import validate_person_map
 from .edge_client import (
     EdgeClient,
     EdgeConnectionError,
@@ -43,6 +52,14 @@ class IaNestConversationConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configure the narrow, TLS-verified IA_NEST edge client."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: Any,
+    ) -> IaNestConversationOptionsFlow:
+        """Return the options flow for an existing entry."""
+        return IaNestConversationOptionsFlow()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -112,6 +129,58 @@ class IaNestConversationConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_MENU_ENTRY, default=defaults.get(CONF_MENU_ENTRY, DEFAULT_MENU_ENTRY)): str,
                     vol.Required(CONF_SESSION_HEADER, default=defaults.get(CONF_SESSION_HEADER, DEFAULT_SESSION_HEADER)): str,
                     vol.Required(CONF_TIMEOUT, default=defaults.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)): vol.All(vol.Coerce(int), vol.Range(min=1)),
+                }
+            ),
+            errors=errors,
+        )
+
+
+class IaNestConversationOptionsFlow(OptionsFlow):
+    """Configure the optional speaker-identifying request headers."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage the user-to-e-mail mapping and header names."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                person_map = validate_person_map(user_input[CONF_PERSON_MAP])
+            except ValueError:
+                errors[CONF_PERSON_MAP] = "invalid_person_map"
+
+            person_header = user_input[CONF_PERSON_HEADER].strip()
+            device_header = user_input[CONF_DEVICE_HEADER].strip()
+            if not person_header or not device_header:
+                errors["base"] = "invalid_headers"
+
+            if not errors:
+                return self.async_create_entry(
+                    title="",
+                    data={
+                        CONF_PERSON_MAP: person_map,
+                        CONF_PERSON_HEADER: person_header,
+                        CONF_DEVICE_HEADER: device_header,
+                    },
+                )
+
+        options = self.config_entry.options
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_PERSON_MAP,
+                        default=options.get(CONF_PERSON_MAP, DEFAULT_PERSON_MAP),
+                    ): ObjectSelector(),
+                    vol.Required(
+                        CONF_PERSON_HEADER,
+                        default=options.get(CONF_PERSON_HEADER, DEFAULT_PERSON_HEADER),
+                    ): str,
+                    vol.Required(
+                        CONF_DEVICE_HEADER,
+                        default=options.get(CONF_DEVICE_HEADER, DEFAULT_DEVICE_HEADER),
+                    ): str,
                 }
             ),
             errors=errors,

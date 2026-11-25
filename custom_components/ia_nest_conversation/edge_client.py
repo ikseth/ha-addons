@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator
 import codecs
 import json
 import ssl
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import urlsplit
 
 import aiohttp
@@ -107,8 +107,13 @@ class EdgeClient:
         """Return the fixed non-conversational request shape (for inspection/tests)."""
         return {"model": self._menu_entry, "stream": True}
 
-    def _headers(self, conversation_id: str | None = None) -> dict[str, str]:
-        headers = {"Authorization": f"Bearer {self._api_key}"}
+    def _headers(
+        self,
+        conversation_id: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> dict[str, str]:
+        headers = dict(extra_headers or {})
+        headers["Authorization"] = f"Bearer {self._api_key}"
         if conversation_id:
             headers[self._session_header] = conversation_id
         return headers
@@ -151,7 +156,11 @@ class EdgeClient:
         return EdgeHttpError(message, status=response.status, code=code)
 
     async def async_stream_chat(
-        self, text: str, conversation_id: str | None
+        self,
+        text: str,
+        conversation_id: str | None,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncGenerator[str]:
         """Stream content deltas from one user turn, and require ``[DONE]``."""
         body = {
@@ -162,7 +171,7 @@ class EdgeClient:
         try:
             async with self._session.post(
                 f"{self._base_url}/v1/chat/completions",
-                headers=self._headers(conversation_id),
+                headers=self._headers(conversation_id, extra_headers),
                 json=body,
                 ssl=self._ssl_context,
                 timeout=self._timeout_config(),
